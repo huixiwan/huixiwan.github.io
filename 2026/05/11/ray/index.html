@@ -9,12 +9,12 @@
   <meta name="description" content="Ray分布式计算框架，是目前RL和推理框架的主要依赖框架了 1.Ray核心架构Driver:用户提交任务的入口Head：运行了GCS（Global Control Service，全局控制服务），集群的大脑，用于监控全局的资源，元数据。跑Raylet（本地调度器）和Plasma Store（共享内存对象存储）  Driver（用户代码） 提交任务 ▼   Head 节点（纯 CPU 机器） GCS">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Ray">
-<meta property="og:url" content="https://huixiwan.github.io/2026/05/10/ray/index.html">
+<meta property="og:url" content="https://huixiwan.github.io/2026/05/11/ray/index.html">
 <meta property="og:site_name" content="AI Notes">
 <meta property="og:description" content="Ray分布式计算框架，是目前RL和推理框架的主要依赖框架了 1.Ray核心架构Driver:用户提交任务的入口Head：运行了GCS（Global Control Service，全局控制服务），集群的大脑，用于监控全局的资源，元数据。跑Raylet（本地调度器）和Plasma Store（共享内存对象存储）  Driver（用户代码） 提交任务 ▼   Head 节点（纯 CPU 机器） GCS">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-05-10T15:51:44.970Z">
-<meta property="article:modified_time" content="2026-05-10T15:51:44.971Z">
+<meta property="article:published_time" content="2026-05-10T16:08:31.779Z">
+<meta property="article:modified_time" content="2026-05-10T16:08:31.780Z">
 <meta property="article:author" content="毁兮完">
 <meta name="twitter:card" content="summary">
   
@@ -77,8 +77,8 @@
       <div class="outer">
         <section id="main"><article id="post-ray" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
-    <a href="/2026/05/10/ray/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:51:44.970Z" itemprop="datePublished">2026-05-10</time>
+    <a href="/2026/05/11/ray/" class="article-date">
+  <time class="dt-published" datetime="2026-05-10T16:08:31.779Z" itemprop="datePublished">2026-05-11</time>
 </a>
     
   <div class="article-category">
@@ -146,7 +146,40 @@
 <h2 id="4-ray调度机制"><a href="#4-ray调度机制" class="headerlink" title="4.ray调度机制"></a>4.ray调度机制</h2><h3 id="4-1调度流程"><a href="#4-1调度流程" class="headerlink" title="4.1调度流程"></a>4.1调度流程</h3><p>1、ray会通过raylet将任务优先调度在自己节点<br>Driver 提交 Task → 本地 Raylet 检查资源足够 → 本地执行worker → Raylet 同步任务状态给GCS</p>
 <p>2、如果当前节点的资源（CPU/GPU/内存）不满足任务需求，则交由GCS分析调度到其他节点<br>Driver 提交 Task → 本地 Raylet 检查资源不足够 → 请求 GCS 做全局调度决策</p>
 <p>3、跨节点调度：优先调度到包含数据所在的节点（但是资源得足够）；如果所需数据分布在多个节点，则优先调度到数据量最大的节点，减少跨节点传输量。<br>GCS 考虑两个因素：资源需求（CPU/GPU）、数据本地性（输入数据在哪）→ GCS 通知目标节点的 Raylet → 分配 Worker 执行</p>
-<h3 id="4-2Placement-Group（可以理解为批量预约资源，类上k8s的gang调度）"><a href="#4-2Placement-Group（可以理解为批量预约资源，类上k8s的gang调度）" class="headerlink" title="4.2Placement Group（可以理解为批量预约资源，类上k8s的gang调度）"></a>4.2Placement Group（可以理解为批量预约资源，类上k8s的gang调度）</h3><p>Ray 支持多种策略（类似 K8s 的亲和性）：<br>| 策略 | 行为 | 类比 K8s |<br>|———|———|————-|<br>| <code>PACK</code> | 尽量放同一节点 | PodAffinity |<br>| <code>SPREAD</code> | 尽量分散到不同节点 | PodAntiAffinity |<br>| <code>STRICT_PACK</code> | 必须放同一节点，放不下就失败 | required PodAffinity |<br>| <code>STRICT_SPREAD</code> | 必须分散，每个节点最多一个 | required PodAntiAffinity |</p>
+<h3 id="4-2Placement-Group（可以理解为批量预约资源，类上k8s的gang调度）"><a href="#4-2Placement-Group（可以理解为批量预约资源，类上k8s的gang调度）" class="headerlink" title="4.2Placement Group（可以理解为批量预约资源，类上k8s的gang调度）"></a>4.2Placement Group（可以理解为批量预约资源，类上k8s的gang调度）</h3><p>Ray 支持多种策略（类似 K8s 的亲和性）：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>行为</th>
+<th>类比 K8s</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PACK</code></td>
+<td>尽量放同一节点</td>
+<td>PodAffinity</td>
+</tr>
+<tr>
+<td><code>SPREAD</code></td>
+<td>尽量分散到不同节点</td>
+<td>PodAntiAffinity</td>
+</tr>
+<tr>
+<td><code>STRICT_PACK</code></td>
+<td>必须放同一节点，放不下就失败</td>
+<td>required PodAffinity</td>
+</tr>
+<tr>
+<td><code>STRICT_SPREAD</code></td>
+<td>必须分散，每个节点最多一个</td>
+<td>required PodAntiAffinity</td>
+</tr>
+</tbody>
+</table>
+</div>
 <p>Placement Group 解决的是 <strong>Gang Scheduling</strong> 问题——保证一组 Actor 同时获得资源，不会出现”部分有资源、部分排队”的中间态。</p>
 <p><strong>RL 场景常用</strong>：多个 Rollout Actor 用 SPREAD（分散采样提高多样性），Rollout + Reward 用 PACK（放同节点减少跨节点传输）。</p>
 <p>使用说明：<br>先定义Placement Group（bundles指定每组资源需求，strategy指定分布策略）<br>再通过.options(placement_group=pg)绑定到Actor/Task。</p>
@@ -223,7 +256,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/ray/" data-id="cuid75eSDSjTElhhJUG8mqcwG" data-title="Ray" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/11/ray/" data-id="cuidFi9_6-C1__AQAqMRAZiAJ" data-title="Ray" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -281,7 +314,7 @@
       <ul>
         
           <li>
-            <a href="/2026/05/10/ray/">Ray</a>
+            <a href="/2026/05/11/ray/">Ray</a>
           </li>
         
           <li>
