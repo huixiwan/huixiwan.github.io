@@ -13,8 +13,8 @@
 <meta property="og:site_name" content="AI Notes">
 <meta property="og:description" content="KubeRayKubeRay 是 Ray 在 K8s 上的部署方案。Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因） 1.整体架构1.1 3种CRDRay J">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-05-10T15:44:53.599Z">
-<meta property="article:modified_time" content="2026-05-10T15:44:53.599Z">
+<meta property="article:published_time" content="2026-05-10T15:48:49.087Z">
+<meta property="article:modified_time" content="2026-05-10T15:48:49.087Z">
 <meta property="article:author" content="毁兮完">
 <meta name="twitter:card" content="summary">
   
@@ -76,7 +76,7 @@
         <section id="main"><article id="post-kuberay" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2026/05/10/kuberay/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:44:53.599Z" itemprop="datePublished">2026-05-10</time>
+  <time class="dt-published" datetime="2026-05-10T15:48:49.087Z" itemprop="datePublished">2026-05-10</time>
 </a>
     
   <div class="article-category">
@@ -128,7 +128,30 @@
 <h3 id="1-2-整体架构"><a href="#1-2-整体架构" class="headerlink" title="1.2 整体架构"></a>1.2 整体架构</h3><p>K8s 层：管理 Pod 的生命周期（创建、销毁、资源分配）<br>KubeRay：把 Ray 组件映射成 K8s 资源（GCS → Head Pod，Raylet → 每个 Pod）<br>Ray 层：管理 Task&#x2F;Actor 调度、对象存储、故障恢复</p>
 <p>用户<br>  │ kubectl apply rayjob.yaml<br>  ▼<br>K8s API Server（存 CRD 资源）<br>  │ 事件通知<br>  ▼<br>KubeRay Operator（常驻 Pod，监听 RayJob&#x2F;RayCluster&#x2F;RayService 资源）<br>  │<br>  │ Reconcile Loop：不断对比 期望状态 vs 实际状态<br>  │<br>  ├─→ 发现没有 Head Pod → 创建 Head Pod<br>  │     └─ Pod 内运行：GCS + Raylet + Dashboard<br>  │<br>  ├─→ 发现 Worker replicas 不够 → 创建 Worker Pod<br>  │     └─ Pod 内运行：Raylet + Worker 进程<br>  │<br>  ├─→ 创建 Service（Head 对外暴露端口）<br>  │<br>  └─→ Job 场景：集群就绪后 → 创建 Driver Pod 执行 entrypoint<br>        │<br>        ▼<br>      训练完成<br>        │<br>        └─→ shutdownAfterJobFinishes&#x3D;true → 删除整个集群</p>
 <p>实质就是先有k8s将用户创建资源信息存储到etcd。然后 K8s 自带的和第三方 Operator，他们的controller都会watch etcd，是kubeRay的controller能监听到kubeRay的资源，所以触发了KubeRay的调谐逻辑。而KubeRay的调谐逻辑，核心就是搭建ray集群，执行任务或是部署服务。</p>
-<p>┌─────────────────────────────────────────────────────┐<br>│                     K8s Cluster                     │<br>│                                                     │<br>│  ┌─────────────────────────────────────────────┐    │<br>│  │         KubeRay Operator Pod                │    │<br>│  │                                             │    │<br>│  │  ┌───────────────────────────────────────┐  │    │<br>│  │  │  Controller Manager                   │  │    │<br>│  │  │  - RayCluster Reconciler              │  │    │<br>│  │  │  - RayJob Reconciler                  │  │    │<br>│  │  │  - RayService Reconciler              │  │    │<br>│  │  └───────────────────────────────────────┘  │    │<br>│  └──────────────────┬──────────────────────────┘    │<br>│                     │ watch &amp; reconcile             │<br>│                     ▼                               │<br>│  ┌──────────────────────────────────────────────┐   │<br>│  │              Head Pod                        │   │<br>│  │  ┌─────────┐            ┌────────────────┐   │   │<br>│  │  │   GCS   │            │   Dashboard    │   │   │<br>│  │  │(全局调度)│            │  (监控面板)    │   │   │<br>│  │  └─────────┘            └────────────────┘   │   │<br>│  │  ┌─────────┐            ┌────────────────┐   │   │<br>│  │  │  Plasma │            │   Raylet       │   │   │<br>│  │  │  (存储)  │           │   (本地调度)    │   │   │<br>│  │  └─────────┘            └────────────────┘   │   │<br>│  └──────────────────────┬───────────────────────┘   │<br>│                          │                          │<br>│            ┌─────────────┼─────────────┐            │<br>│            ▼             ▼             ▼            │<br>│  ┌──────────────┐ ┌────────────┐ ┌────────────┐     │<br>│  │  Worker Pod 0│ │ Worker Pod1│ │ Worker Pod2│     │<br>│  │ ┌──────────┐ │ │ ┌────────┐ │ │ ┌────────┐ │     │<br>│  │ │  Raylet  │ │ │ │ Raylet │ │ │ │ Raylet │ │     │<br>│  │ │ Plasma   │ │ │ │ Plasma │ │ │ │ Plasma │ │     │<br>│  │ │ Worker×N │ │ │ │Worker×N│ │ │ │Worker×N│ │     │<br>│  │ └──────────┘ │ │ └────────┘ │ │ └────────┘ │     │<br>│  └──────────────┘ └────────────┘ └────────────┘     │<br>│                                                     │<br>└─────────────────────────────────────────────────────┘</p>
+<p><strong>K8s Cluster</strong></p>
+<ul>
+<li><strong>KubeRay Operator Pod</strong><ul>
+<li>Controller Manager<ul>
+<li>RayCluster Reconciler</li>
+<li>RayJob Reconciler</li>
+<li>RayService Reconciler</li>
+</ul>
+</li>
+<li><em>watch &amp; reconcile ▼</em></li>
+</ul>
+</li>
+<li><strong>Head Pod</strong><ul>
+<li>GCS（全局调度）</li>
+<li>Dashboard（监控面板）</li>
+<li>Raylet（本地调度）+ Plasma（对象存储）</li>
+</ul>
+</li>
+<li><strong>Worker Pod × N</strong><ul>
+<li>Raylet（本地调度）+ Plasma（对象存储）</li>
+<li>Worker 进程 × N</li>
+</ul>
+</li>
+</ul>
 <h3 id="1-3-ray-pod说明"><a href="#1-3-ray-pod说明" class="headerlink" title="1.3 ray pod说明"></a>1.3 ray pod说明</h3><p>Head Pod — 集群大脑，包含head相关组件+worker的组件：</p>
 <ul>
 <li>GCS (Global Control Service)：全局元数据存储 + 全局调度（任务分发、Actor创建）</li>
@@ -141,7 +164,41 @@
 <li>Worker 进程：实际执行用户代码的进程，数量由 Pod 的 CPU 资源决定</li>
 </ul>
 <p>注：Ray 2.x：Plasma 已经合并进 Raylet 进程内部，不再独立存在</p>
-<p>Ray Node（逻辑概念） → Ray Pod（K8s物理载体）<br>主要是生命周期交给了 K8s 管理<br>┌──────────┬─────────────────────────┬───────────────────────────────┐<br>│          │ Ray Node（裸机&#x2F;Docker）  │        Ray Pod（K8s）         │<br>├──────────┼─────────────────────────┼───────────────────────────────┤<br>│ 进程组成  │ 相同                    │ 相同                          │<br>├──────────┼─────────────────────────┼───────────────────────────────┤<br>│ 资源分配  │ 手动指定 –num-cpus      │ Pod resources.limits 自动映射 │<br>├──────────┼─────────────────────────┼───────────────────────────────┤<br>│ 故障恢复  │ 需要自己写脚本重启       │ K8s 自动重建 Pod               │<br>├──────────┼─────────────────────────┼───────────────────────────────┤<br>│ 服务发现  │ 手动指定 –address      │ Head Service 自动注入          │<br>├──────────┼─────────────────────────┼───────────────────────────────┤<br>│ 扩缩容    │ 手动 ray up 加机器      │ 改 replicas 即可               │<br>└──────────┴─────────────────────────┴───────────────────────────────┘</p>
+<p>Ray Node（逻辑概念） → Ray Pod（K8s物理载体），主要是生命周期交给了 K8s 管理</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Ray Node（裸机&#x2F;Docker）</th>
+<th>Ray Pod（K8s）</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>进程组成</td>
+<td>相同</td>
+<td>相同</td>
+</tr>
+<tr>
+<td>资源分配</td>
+<td>手动指定 –num-cpus</td>
+<td>Pod resources.limits 自动映射</td>
+</tr>
+<tr>
+<td>故障恢复</td>
+<td>需要自己写脚本重启</td>
+<td>K8s 自动重建 Pod</td>
+</tr>
+<tr>
+<td>服务发现</td>
+<td>手动指定 –address</td>
+<td>Head Service 自动注入</td>
+</tr>
+<tr>
+<td>扩缩容</td>
+<td>手动 ray up 加机器</td>
+<td>改 replicas 即可</td>
+</tr>
+</tbody></table>
 <h2 id="2-KubeRay的使用"><a href="#2-KubeRay的使用" class="headerlink" title="2.KubeRay的使用"></a>2.KubeRay的使用</h2><h3 id="2-1-插件安装"><a href="#2-1-插件安装" class="headerlink" title="2.1 插件安装"></a>2.1 插件安装</h3><p>KubeRay Operator 是个独立组件，需要部署到 K8s 集群里<br>kubectl apply -f <a target="_blank" rel="noopener" href="https://github.com/ray-project/kuberay/releases/latest/download/kuberay-operator.yaml">https://github.com/ray-project/kuberay/releases/latest/download/kuberay-operator.yaml</a></p>
 <p>k8s安装插件原理：<br>插件实质就是一组k8s资源。因此也就是让k8s运行这些资源就表示安装了插件。</p>
 <p>KubeRay插件资源说明：<br>CRD*3：注册 RayCluster、RayJob、RayService 三种自定义资源类型。<br>Deployment（核心）：Operator 本身，在k8s集群上运行这个pod，里面包含ray crd相关的controller。其会被运行在某一个k8s node节点上。<br>ClusterRole + ClusterRoleBinding + ServiceAccount：RBAC，权限相关。声明 Operator 需要的权限并绑定到其身份，从而能操作 Pod、Service 等<br>Namespace：创建 ray-system 命名空间</p>
@@ -196,7 +253,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/kuberay/" data-id="cuidz1se6sYJE423MJgqofReB" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/kuberay/" data-id="cuidF-AzVad3wn9Ur-3WKnYLN" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
