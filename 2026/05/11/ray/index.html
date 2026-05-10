@@ -6,15 +6,15 @@
   
   <title>Ray | AI Notes</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <meta name="description" content="Ray分布式计算框架，是目前RL和推理框架的主要依赖框架了 1.Ray核心架构Driver:用户提交任务的入口Head：运行了GCS（Global Control Service，全局控制服务），集群的大脑，用于监控全局的资源，元数据。跑Raylet（本地调度器）和Plasma Store（共享内存对象存储）  Driver（用户代码） 提交任务 ▼   Head 节点（纯 CPU 机器） GCS">
+  <meta name="description" content="Ray分布式计算框架，是目前RL和推理框架的主要依赖框架了 1.Ray核心架构Driver:用户提交任务的入口Head：运行了GCS（Global Control Service，全局控制服务），集群的大脑，用于监控全局的资源，元数据。跑Raylet（本地调度器）和Plasma Store（共享内存对象存储）  Driver（用户代码） 提交任务| ▼    Head 节点（纯 CPU 机器） G">
 <meta property="og:type" content="article">
 <meta property="og:title" content="Ray">
 <meta property="og:url" content="https://huixiwan.github.io/2026/05/11/ray/index.html">
 <meta property="og:site_name" content="AI Notes">
-<meta property="og:description" content="Ray分布式计算框架，是目前RL和推理框架的主要依赖框架了 1.Ray核心架构Driver:用户提交任务的入口Head：运行了GCS（Global Control Service，全局控制服务），集群的大脑，用于监控全局的资源，元数据。跑Raylet（本地调度器）和Plasma Store（共享内存对象存储）  Driver（用户代码） 提交任务 ▼   Head 节点（纯 CPU 机器） GCS">
+<meta property="og:description" content="Ray分布式计算框架，是目前RL和推理框架的主要依赖框架了 1.Ray核心架构Driver:用户提交任务的入口Head：运行了GCS（Global Control Service，全局控制服务），集群的大脑，用于监控全局的资源，元数据。跑Raylet（本地调度器）和Plasma Store（共享内存对象存储）  Driver（用户代码） 提交任务| ▼    Head 节点（纯 CPU 机器） G">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-05-10T16:08:31.779Z">
-<meta property="article:modified_time" content="2026-05-10T16:08:31.780Z">
+<meta property="article:published_time" content="2026-05-10T16:21:28.310Z">
+<meta property="article:modified_time" content="2026-05-10T16:21:28.310Z">
 <meta property="article:author" content="毁兮完">
 <meta name="twitter:card" content="summary">
   
@@ -78,7 +78,7 @@
         <section id="main"><article id="post-ray" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2026/05/11/ray/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T16:08:31.779Z" itemprop="datePublished">2026-05-11</time>
+  <time class="dt-published" datetime="2026-05-10T16:21:28.310Z" itemprop="datePublished">2026-05-11</time>
 </a>
     
   <div class="article-category">
@@ -105,14 +105,17 @@
 <h2 id="1-Ray核心架构"><a href="#1-Ray核心架构" class="headerlink" title="1.Ray核心架构"></a>1.Ray核心架构</h2><p>Driver:用户提交任务的入口<br>Head：运行了GCS（Global Control Service，全局控制服务），集群的大脑，用于监控全局的资源，元数据。<br>跑Raylet（本地调度器）和Plasma Store（共享内存对象存储）</p>
 <ul>
 <li><strong>Driver</strong>（用户代码）<ul>
-<li>提交任务 ▼</li>
+<li>提交任务<pre><code>|
+▼
+</code></pre></li>
 </ul>
 </li>
 <li><strong>Head 节点</strong>（纯 CPU 机器）<ul>
 <li>GCS（全局调度决策）</li>
 <li>Raylet</li>
-<li>Dashboard</li>
-<li>▼</li>
+<li>Dashboard<pre><code>|
+▼
+</code></pre></li>
 </ul>
 </li>
 <li><strong>Worker 节点 × N</strong>（一个服务器可运行多个 Worker）<ul>
@@ -256,7 +259,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/11/ray/" data-id="cuidG2I7mLRh5W6Cd8mUmjZIi" data-title="Ray" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/11/ray/" data-id="cuidf3tv9RMDR6mOtqkWiOviq" data-title="Ray" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
