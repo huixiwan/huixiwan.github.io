@@ -31,7 +31,9 @@
   
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
 
-<meta name="generator" content="Hexo 8.1.2"></head>
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
+<!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head>
 
 <body>
   <div id="container">
@@ -128,71 +130,35 @@
 <h2 id="2-Ray的设计思想"><a href="#2-Ray的设计思想" class="headerlink" title="2.Ray的设计思想"></a>2.Ray的设计思想</h2><p>ray是为了在python场景下方便地使用多进程能力设计的。<br>分布式计算采用多进程原因：多进程能跨机器，且GPU按进程分配，能实现资源隔离，方便Ray调度。<br>多进程通信难——》Plamsa Store。（同节点零拷贝共享内存）<br>多机器多进程管理困难——》GCS+Raylet的设计方式（全局调度 + 本地调度两层架构）<br>分布式场景容易故障——》故障恢复（Task重试、Actor Checkpoint、Lineage重建）</p>
 <h2 id="3-Ray用法"><a href="#3-Ray用法" class="headerlink" title="3.Ray用法"></a>3.Ray用法</h2><h3 id="3-1-ray两大原语"><a href="#3-1-ray两大原语" class="headerlink" title="3.1 ray两大原语"></a>3.1 ray两大原语</h3><p>actor（有状态实例）：定义在类上<br>task（无状态进程）：定义在函数上</p>
 <p>使用方法：<br>1、定义：在类或是函数上加@ray.remote<br>2、触发：XX.remote()<br>3、获取结果（仅限task）：ray.get()</p>
-<p>actor例子：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">@ray.remote</span><br><span class="line">class Learner:</span><br><span class="line">    def __init__(self):</span><br><span class="line">        self.weights = [0, 0, 0]  # 状态</span><br><span class="line">    def update(self, grad):</span><br><span class="line">        self.weights = [w + g for w, g in zip(self.weights, grad)]</span><br><span class="line"></span><br><span class="line">learner = Learner.remote()       # 在某个节点创建</span><br><span class="line">learner.update.remote([1,2,3])   # 始终路由到同一节点</span><br></pre></td></tr></table></figure>
-
-<p>task例子：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">@ray.remote</span><br><span class="line">def process(data):</span><br><span class="line">    return data * 2</span><br><span class="line"></span><br><span class="line">ref = process.remote(10)   # 不阻塞，提交到集群</span><br><span class="line">result = ray.get(ref)       # 这里才阻塞拿结果</span><br></pre></td></tr></table></figure>
-
+<p>actor例子：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line">@ray.remote</span><br><span class="line">class Learner:</span><br><span class="line">    def __init__(self):</span><br><span class="line">        self.weights = [0, 0, 0]  # 状态</span><br><span class="line">    def update(self, grad):</span><br><span class="line">        self.weights = [w + g for w, g in zip(self.weights, grad)]</span><br><span class="line"></span><br><span class="line">learner = Learner.remote()       # 在某个节点创建</span><br><span class="line">learner.update.remote([1,2,3])   # 始终路由到同一节点</span><br></pre></td></tr></table></figure></p>
+<p>task例子：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">@ray.remote</span><br><span class="line">def process(data):</span><br><span class="line">    return data * 2</span><br><span class="line"></span><br><span class="line">ref = process.remote(10)   # 不阻塞，提交到集群</span><br><span class="line">result = ray.get(ref)       # 这里才阻塞拿结果</span><br></pre></td></tr></table></figure></p>
 <h3 id="3-2-plasma-store获取对象"><a href="#3-2-plasma-store获取对象" class="headerlink" title="3.2 plasma store获取对象"></a>3.2 plasma store获取对象</h3><p>Plasma Store 是 Ray 的共享内存对象存储，节点内 Worker 之间通过它共享数据，零拷贝。</p>
 <p>存数据： ray.put() — 把数据放入 Plasma Store，返回 ObjectRef<br>取数据： ray.get() — 通过 ObjectRef 取出数据</p>
 <p>注：ray的task结果也在Plasma Store里，ray.get()就是从store里取的。<br>而actor不在Plasma Store里，在自身的进程里，不需要经过store中转。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">import ray</span><br><span class="line">ray.init()</span><br><span class="line"></span><br><span class="line"># 存数据</span><br><span class="line">obj_ref = ray.put(&#123;&quot;weights&quot;: [1, 2, 3]&#125;)  # 返回ObjectRef</span><br><span class="line"></span><br><span class="line"># 取数据</span><br><span class="line">data = ray.get(obj_ref)  # &#123;&quot;weights&quot;: [1, 2, 3]&#125;</span><br><span class="line"></span><br><span class="line"># 同节点内的多个Worker共享，零拷贝</span><br><span class="line">@ray.remote</span><br><span class="line">def train(data_ref):</span><br><span class="line">    data = ray.get(data_ref)  # 直接从共享内存读，不需要序列化传输</span><br><span class="line">    return sum(data[&quot;weights&quot;])</span><br><span class="line"></span><br><span class="line">result = ray.get(train.remote(obj_ref))</span><br></pre></td></tr></table></figure>
-
 <h3 id="3-3-阻塞等待与非阻塞等待"><a href="#3-3-阻塞等待与非阻塞等待" class="headerlink" title="3.3 阻塞等待与非阻塞等待"></a>3.3 阻塞等待与非阻塞等待</h3><p>ray.get()：阻塞等待，全部完成后才返回<br>ray.wait()：非阻塞等待，返回”已完成”和”未完成”两组</p>
-<p>示例：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"># ray.get()示例 — 阻塞等待，全部完成后才返回</span><br><span class="line">results = ray.get([task.remote(i) for i in range(3)])</span><br><span class="line"></span><br><span class="line"># ray.wait() — 非阻塞，返回&quot;已完成&quot;和&quot;未完成&quot;两组</span><br><span class="line"># 三个参数组合：</span><br><span class="line"># - 只传num_returns：等够指定数量就返回</span><br><span class="line"># - 只传timeout：等到超时就返回，完成了多少算多少</span><br><span class="line"># - 都不传：等至少1个完成就返回</span><br><span class="line"></span><br><span class="line"># - 只传num_returns</span><br><span class="line">refs = [task.remote(i) for i in range(5)]</span><br><span class="line">done, pending = ray.wait(refs, num_returns=2)  # 只等2个完成就返回</span><br><span class="line">done_results = ray.get(done)  # 拿已完成的2个</span><br><span class="line"># 2个完成。pending里剩3个可以后续再处理</span><br><span class="line"></span><br><span class="line"># - 只传timeout</span><br><span class="line">refs = [task.remote(i) for i in range(5)]</span><br><span class="line">done, pending = ray.wait(refs, timeout=2000)  # 等待2秒就返回</span><br><span class="line"># timeout到了，可能只完成了2个。done = [ref0, ref1], pending = [ref2, ref3, ref4]</span><br></pre></td></tr></table></figure>
-
+<p>示例：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"># ray.get()示例 — 阻塞等待，全部完成后才返回</span><br><span class="line">results = ray.get([task.remote(i) for i in range(3)])</span><br><span class="line"></span><br><span class="line"># ray.wait() — 非阻塞，返回&quot;已完成&quot;和&quot;未完成&quot;两组</span><br><span class="line"># 三个参数组合：</span><br><span class="line"># - 只传num_returns：等够指定数量就返回</span><br><span class="line"># - 只传timeout：等到超时就返回，完成了多少算多少</span><br><span class="line"># - 都不传：等至少1个完成就返回</span><br><span class="line"></span><br><span class="line"># - 只传num_returns</span><br><span class="line">refs = [task.remote(i) for i in range(5)]</span><br><span class="line">done, pending = ray.wait(refs, num_returns=2)  # 只等2个完成就返回</span><br><span class="line">done_results = ray.get(done)  # 拿已完成的2个</span><br><span class="line"># 2个完成。pending里剩3个可以后续再处理</span><br><span class="line"></span><br><span class="line"># - 只传timeout</span><br><span class="line">refs = [task.remote(i) for i in range(5)]</span><br><span class="line">done, pending = ray.wait(refs, timeout=2000)  # 等待2秒就返回</span><br><span class="line"># timeout到了，可能只完成了2个。done = [ref0, ref1], pending = [ref2, ref3, ref4]</span><br></pre></td></tr></table></figure></p>
 <h3 id="3-4-ray启动"><a href="#3-4-ray启动" class="headerlink" title="3.4 ray启动"></a>3.4 ray启动</h3><p>单机场景：<br>只需要ray.init()</p>
-<p>多机场景<br>需要搭建ray集群，相关指令如下<br>ray.start：创建集群：head节点：ray start –head，worker节点：ray start –address&#x3D;…<br>ray status：查看集群资源状态<br>ray stop：停止本节点</p>
+<p>多机场景<br>需要搭建ray集群，相关指令如下<br>ray.start：创建集群：head节点：ray start —head，worker节点：ray start —address=…<br>ray status：查看集群资源状态<br>ray stop：停止本节点</p>
 <p>之后driver节点的脚本使用ray.init()，连接上ray集群。</p>
 <h2 id="4-ray调度机制"><a href="#4-ray调度机制" class="headerlink" title="4.ray调度机制"></a>4.ray调度机制</h2><h3 id="4-1调度流程"><a href="#4-1调度流程" class="headerlink" title="4.1调度流程"></a>4.1调度流程</h3><p>1、ray会通过raylet将任务优先调度在自己节点<br>Driver 提交 Task → 本地 Raylet 检查资源足够 → 本地执行worker → Raylet 同步任务状态给GCS</p>
-<p>2、如果当前节点的资源（CPU&#x2F;GPU&#x2F;内存）不满足任务需求，则交由GCS分析调度到其他节点<br>Driver 提交 Task → 本地 Raylet 检查资源不足够 → 请求 GCS 做全局调度决策</p>
-<p>3、跨节点调度：优先调度到包含数据所在的节点（但是资源得足够）；如果所需数据分布在多个节点，则优先调度到数据量最大的节点，减少跨节点传输量。<br>GCS 考虑两个因素：资源需求（CPU&#x2F;GPU）、数据本地性（输入数据在哪）→ GCS 通知目标节点的 Raylet → 分配 Worker 执行</p>
-<h3 id="4-2Placement-Group（可以理解为批量预约资源，类上k8s的gang调度）"><a href="#4-2Placement-Group（可以理解为批量预约资源，类上k8s的gang调度）" class="headerlink" title="4.2Placement Group（可以理解为批量预约资源，类上k8s的gang调度）"></a>4.2Placement Group（可以理解为批量预约资源，类上k8s的gang调度）</h3><p>Ray 支持多种策略（类似 K8s 的亲和性）：</p>
-<table>
-<thead>
-<tr>
-<th>策略</th>
-<th>行为</th>
-<th>类比 K8s</th>
-</tr>
-</thead>
-<tbody><tr>
-<td><code>PACK</code></td>
-<td>尽量放同一节点</td>
-<td>PodAffinity</td>
-</tr>
-<tr>
-<td><code>SPREAD</code></td>
-<td>尽量分散到不同节点</td>
-<td>PodAntiAffinity</td>
-</tr>
-<tr>
-<td><code>STRICT_PACK</code></td>
-<td>必须放同一节点，放不下就失败</td>
-<td>required PodAffinity</td>
-</tr>
-<tr>
-<td><code>STRICT_SPREAD</code></td>
-<td>必须分散，每个节点最多一个</td>
-<td>required PodAntiAffinity</td>
-</tr>
-</tbody></table>
+<p>2、如果当前节点的资源（CPU/GPU/内存）不满足任务需求，则交由GCS分析调度到其他节点<br>Driver 提交 Task → 本地 Raylet 检查资源不足够 → 请求 GCS 做全局调度决策</p>
+<p>3、跨节点调度：优先调度到包含数据所在的节点（但是资源得足够）；如果所需数据分布在多个节点，则优先调度到数据量最大的节点，减少跨节点传输量。<br>GCS 考虑两个因素：资源需求（CPU/GPU）、数据本地性（输入数据在哪）→ GCS 通知目标节点的 Raylet → 分配 Worker 执行</p>
+<h3 id="4-2Placement-Group（可以理解为批量预约资源，类上k8s的gang调度）"><a href="#4-2Placement-Group（可以理解为批量预约资源，类上k8s的gang调度）" class="headerlink" title="4.2Placement Group（可以理解为批量预约资源，类上k8s的gang调度）"></a>4.2Placement Group（可以理解为批量预约资源，类上k8s的gang调度）</h3><p>Ray 支持多种策略（类似 K8s 的亲和性）：<br>| 策略 | 行为 | 类比 K8s |<br>|———|———|————-|<br>| <code>PACK</code> | 尽量放同一节点 | PodAffinity |<br>| <code>SPREAD</code> | 尽量分散到不同节点 | PodAntiAffinity |<br>| <code>STRICT_PACK</code> | 必须放同一节点，放不下就失败 | required PodAffinity |<br>| <code>STRICT_SPREAD</code> | 必须分散，每个节点最多一个 | required PodAntiAffinity |</p>
 <p>Placement Group 解决的是 <strong>Gang Scheduling</strong> 问题——保证一组 Actor 同时获得资源，不会出现”部分有资源、部分排队”的中间态。</p>
 <p><strong>RL 场景常用</strong>：多个 Rollout Actor 用 SPREAD（分散采样提高多样性），Rollout + Reward 用 PACK（放同节点减少跨节点传输）。</p>
-<p>使用说明：<br>先定义Placement Group（bundles指定每组资源需求，strategy指定分布策略）<br>再通过.options(placement_group&#x3D;pg)绑定到Actor&#x2F;Task。</p>
-<p>使用示例：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">import ray</span><br><span class="line"></span><br><span class="line">ray.init()</span><br><span class="line"></span><br><span class="line"># 创建Placement Group：3组资源，每组2 CPU，分散到不同节点</span><br><span class="line">pg = ray.util.placement_group(</span><br><span class="line">    bundles=[&#123;&quot;CPU&quot;: 2&#125;, &#123;&quot;CPU&quot;: 2&#125;, &#123;&quot;CPU&quot;: 2&#125;],</span><br><span class="line">    strategy=&quot;SPREAD&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># Actor绑定到Placement Group</span><br><span class="line">@ray.remote</span><br><span class="line">class RolloutWorker:</span><br><span class="line">    def __init__(self, env_id):</span><br><span class="line">        self.env = make_env(env_id)</span><br><span class="line"></span><br><span class="line"># 3个Actor原子性地分配到3个不同节点</span><br><span class="line">workers = [</span><br><span class="line">    RolloutWorker.options(placement_group=pg).remote(f&quot;env_&#123;i&#125;&quot;)</span><br><span class="line">    for i in range(3)</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line"># 用完可以释放</span><br><span class="line">ray.util.remove_placement_group(pg)</span><br></pre></td></tr></table></figure>
-
-<h2 id="5-ray的故障恢复能力"><a href="#5-ray的故障恢复能力" class="headerlink" title="5.ray的故障恢复能力"></a>5.ray的故障恢复能力</h2><table>
+<p>使用说明：<br>先定义Placement Group（bundles指定每组资源需求，strategy指定分布策略）<br>再通过.options(placement_group=pg)绑定到Actor/Task。</p>
+<p>使用示例：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br></pre></td><td class="code"><pre><span class="line">import ray</span><br><span class="line"></span><br><span class="line">ray.init()</span><br><span class="line"></span><br><span class="line"># 创建Placement Group：3组资源，每组2 CPU，分散到不同节点</span><br><span class="line">pg = ray.util.placement_group(</span><br><span class="line">    bundles=[&#123;&quot;CPU&quot;: 2&#125;, &#123;&quot;CPU&quot;: 2&#125;, &#123;&quot;CPU&quot;: 2&#125;],</span><br><span class="line">    strategy=&quot;SPREAD&quot;</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># Actor绑定到Placement Group</span><br><span class="line">@ray.remote</span><br><span class="line">class RolloutWorker:</span><br><span class="line">    def __init__(self, env_id):</span><br><span class="line">        self.env = make_env(env_id)</span><br><span class="line"></span><br><span class="line"># 3个Actor原子性地分配到3个不同节点</span><br><span class="line">workers = [</span><br><span class="line">    RolloutWorker.options(placement_group=pg).remote(f&quot;env_&#123;i&#125;&quot;)</span><br><span class="line">    for i in range(3)</span><br><span class="line">]</span><br><span class="line"></span><br><span class="line"># 用完可以释放</span><br><span class="line">ray.util.remove_placement_group(pg)</span><br></pre></td></tr></table></figure></p>
+<h2 id="5-ray的故障恢复能力"><a href="#5-ray的故障恢复能力" class="headerlink" title="5.ray的故障恢复能力"></a>5.ray的故障恢复能力</h2><div class="table-container">
+<table>
 <thead>
 <tr>
 <th>故障类型</th>
 <th>Ray 怎么处理</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td><strong>Task 挂了</strong></td>
 <td>自动重试（<code>max_retries</code>），在当前节点重新运行task</td>
 </tr>
@@ -206,7 +172,7 @@
 </tr>
 <tr>
 <td><strong>Raylet 挂了</strong></td>
-<td>GCS 检测到节点失联，重新调度该节点上的 Task&#x2F;Actor到其他节点。然后当前节点重新ray start连接上head节点</td>
+<td>GCS 检测到节点失联，重新调度该节点上的 Task/Actor到其他节点。然后当前节点重新ray start连接上head节点</td>
 </tr>
 <tr>
 <td><strong>Plasma Store 挂了（OOM）</strong></td>
@@ -220,7 +186,9 @@
 <td><strong>Worker 挂了</strong></td>
 <td>Ray 自动重新拉起 Worker 进程，通过ray start</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
+</div>
 <p>下述仅需了解：</p>
 <h3 id="head节点重启"><a href="#head节点重启" class="headerlink" title="head节点重启"></a>head节点重启</h3><p>Head 节点上跑了三个东西：GCS、Raylet-Head、Dashboard。</p>
 <ul>
@@ -235,7 +203,6 @@
 <h3 id="GCS-HA："><a href="#GCS-HA：" class="headerlink" title="GCS HA："></a>GCS HA：</h3><p>Ray 2.x 之前 GCS 是单点，挂了整个集群废掉。Ray 2.x 支持跑多个 GCS 副本，用 Raft<br>协议保证它们数据一致，一个挂了自动选新的 Leader 接管。</p>
 <h3 id="Actor的Checkpoint-恢复"><a href="#Actor的Checkpoint-恢复" class="headerlink" title="Actor的Checkpoint 恢复"></a>Actor的Checkpoint 恢复</h3><p>Actor 在运行过程中，用户主动保存状态快照（Checkpoint），挂了之后 Ray 从最近的快照恢复。</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">@ray.remote(max_retries=0)</span><br><span class="line">class Learner:</span><br><span class="line">    def __init__(self):</span><br><span class="line">        self.step = 0</span><br><span class="line"></span><br><span class="line">    def train(self):</span><br><span class="line">        self.step += 1</span><br><span class="line">        # 每 100 步存一次 checkpoint</span><br><span class="line">        if self.step % 100 == 0:</span><br><span class="line">            ray.actor.save_checkpoint(self)</span><br><span class="line">        return self.step</span><br><span class="line"></span><br><span class="line">    # Ray 调用这个方法恢复状态</span><br><span class="line">    @ray.method</span><br><span class="line">    def __ray_checkpoint_restore__(self, checkpoint):</span><br><span class="line">        self.step = checkpoint[&quot;step&quot;]</span><br></pre></td></tr></table></figure>
-
 <p>流程：</p>
 <ol>
 <li>Actor 跑到第 300 步时挂了 → 自动从第 300 步的 checkpoint 恢复</li>
@@ -244,7 +211,6 @@
 <p>关键点：checkpoint 是用户自己定义存什么和怎么恢复的，Ray<br>只负责调用。类似游戏的存档，你决定什么时候存、存什么，游戏挂了读档继续。</p>
 <h2 id="6-ray的AI场景实战"><a href="#6-ray的AI场景实战" class="headerlink" title="6.ray的AI场景实战"></a>6.ray的AI场景实战</h2><p>TODO:修改并验证代码</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br><span class="line">50</span><br><span class="line">51</span><br><span class="line">52</span><br><span class="line">53</span><br><span class="line">54</span><br><span class="line">55</span><br><span class="line">56</span><br><span class="line">57</span><br><span class="line">58</span><br><span class="line">59</span><br></pre></td><td class="code"><pre><span class="line">import ray</span><br><span class="line">import numpy as np</span><br><span class="line"></span><br><span class="line">ray.init()</span><br><span class="line"></span><br><span class="line"># ---------- Actor：采样环境 ----------</span><br><span class="line">@ray.remote</span><br><span class="line">class RolloutEnv:</span><br><span class="line">    def __init__(self, env_id):</span><br><span class="line">        self.env = make_env(env_id)</span><br><span class="line">        self.obs = self.env.reset()</span><br><span class="line"></span><br><span class="line">    def step(self, action):</span><br><span class="line">        self.obs, reward, done, info = self.env.step(action)</span><br><span class="line">        if done:</span><br><span class="line">            self.obs = self.env.reset()</span><br><span class="line">        return self.obs, reward, done, info</span><br><span class="line"></span><br><span class="line">    def get_obs(self):</span><br><span class="line">        return self.obs</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"># ---------- Actor：Learner（有状态，持有模型） ----------</span><br><span class="line">@ray.remote</span><br><span class="line">class Learner:</span><br><span class="line">    def __init__(self):</span><br><span class="line">        self.weights = np.random.randn(100)  # 模拟模型参数</span><br><span class="line"></span><br><span class="line">    def get_weights(self):</span><br><span class="line">        return ray.put(self.weights)  # 存入 Plasma Store，零拷贝分发给所有采样环境</span><br><span class="line"></span><br><span class="line">    def update(self, batch):</span><br><span class="line">        # 模拟训练：用采样数据更新参数</span><br><span class="line">        self.weights += np.mean(batch, axis=0) * 0.01</span><br><span class="line">        return self.weights</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"># ---------- Task：用模型权重在环境里采样 ----------</span><br><span class="line">@ray.remote</span><br><span class="line">def collect_data(env, weights_ref):</span><br><span class="line">    weights = ray.get(weights_ref)  # 从 Plasma Store 取权重（零拷贝）</span><br><span class="line">    action = np.dot(weights, env.get_obs()) &gt; 0</span><br><span class="line">    obs, reward, done, info = env.step(action)</span><br><span class="line">    return reward</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"># ---------- 主流程：采样 → 训练 → 循环 ----------</span><br><span class="line">learner = Learner.remote()  # 创建 Learner Actor</span><br><span class="line">envs = [RolloutEnv.remote(f&quot;env_&#123;i&#125;&quot;) for i in range(4)]  # 4个采样环境 Actor</span><br><span class="line"></span><br><span class="line">for round in range(10):</span><br><span class="line">    # 1. Learner 把权重存入 Plasma Store</span><br><span class="line">    weights_ref = ray.get(learner.get_weights.remote())</span><br><span class="line"></span><br><span class="line">    # 2. 4个环境并行采样（Task + Plasma Store 零拷贝）</span><br><span class="line">    rewards = ray.get([collect_data.remote(env, weights_ref) for env in envs])</span><br><span class="line"></span><br><span class="line">    # 3. Learner 用采样数据更新参数</span><br><span class="line">    ray.get(learner.update.remote(rewards))</span><br></pre></td></tr></table></figure>
-
 <ul>
 <li>Actor：RolloutEnv（有状态的采样环境）、Learner（持有模型参数）</li>
 <li>Task：collect_data（无状态的采样函数）</li>
@@ -255,7 +221,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/ray/" data-id="cuidZdm0mLJloNhBy6SRe9J3S" data-title="Ray" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/ray/" data-id="cuid1Bqfr-eTLS-QaVAXojuSU" data-title="Ray" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -295,6 +261,7 @@
       
         <h1 id="KubeRay"><a href="#KubeRay" class="headerlink" title="KubeRay"></a>KubeRay</h1><p>KubeRay 是 Ray 在 K8s 上的部署方案。<br>Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因）</p>
 <h2 id="1-整体架构"><a href="#1-整体架构" class="headerlink" title="1.整体架构"></a>1.整体架构</h2><h3 id="1-1-3种CRD"><a href="#1-1-3种CRD" class="headerlink" title="1.1 3种CRD"></a>1.1 3种CRD</h3><p>Ray Job<br>Ray Service<br>Ray Cluster</p>
+<div class="table-container">
 <table>
 <thead>
 <tr>
@@ -303,7 +270,8 @@
 <th>生命周期</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td><code>RayCluster</code></td>
 <td>创建长期运行的 Ray 集群</td>
 <td>手动删除才销毁</td>
@@ -318,9 +286,11 @@
 <td>部署 Ray Serve 在线推理服务</td>
 <td>手动删除才销毁</td>
 </tr>
-</tbody></table>
-<h3 id="1-2-整体架构"><a href="#1-2-整体架构" class="headerlink" title="1.2 整体架构"></a>1.2 整体架构</h3><p>K8s 层：管理 Pod 的生命周期（创建、销毁、资源分配）<br>KubeRay：把 Ray 组件映射成 K8s 资源（GCS → Head Pod，Raylet → 每个 Pod）<br>Ray 层：管理 Task&#x2F;Actor 调度、对象存储、故障恢复</p>
-<p>用户<br>  │ kubectl apply rayjob.yaml<br>  ▼<br>K8s API Server（存 CRD 资源）<br>  │ 事件通知<br>  ▼<br>KubeRay Operator（常驻 Pod，监听 RayJob&#x2F;RayCluster&#x2F;RayService 资源）<br>  │<br>  │ Reconcile Loop：不断对比 期望状态 vs 实际状态<br>  │<br>  ├─→ 发现没有 Head Pod → 创建 Head Pod<br>  │     └─ Pod 内运行：GCS + Raylet + Dashboard<br>  │<br>  ├─→ 发现 Worker replicas 不够 → 创建 Worker Pod<br>  │     └─ Pod 内运行：Raylet + Worker 进程<br>  │<br>  ├─→ 创建 Service（Head 对外暴露端口）<br>  │<br>  └─→ Job 场景：集群就绪后 → 创建 Driver Pod 执行 entrypoint<br>        │<br>        ▼<br>      训练完成<br>        │<br>        └─→ shutdownAfterJobFinishes&#x3D;true → 删除整个集群</p>
+</tbody>
+</table>
+</div>
+<h3 id="1-2-整体架构"><a href="#1-2-整体架构" class="headerlink" title="1.2 整体架构"></a>1.2 整体架构</h3><p>K8s 层：管理 Pod 的生命周期（创建、销毁、资源分配）<br>KubeRay：把 Ray 组件映射成 K8s 资源（GCS → Head Pod，Raylet → 每个 Pod）<br>Ray 层：管理 Task/Actor 调度、对象存储、故障恢复</p>
+<p>用户<br>  │ kubectl apply rayjob.yaml<br>  ▼<br>K8s API Server（存 CRD 资源）<br>  │ 事件通知<br>  ▼<br>KubeRay Operator（常驻 Pod，监听 RayJob/RayCluster/RayService 资源）<br>  │<br>  │ Reconcile Loop：不断对比 期望状态 vs 实际状态<br>  │<br>  ├─→ 发现没有 Head Pod → 创建 Head Pod<br>  │     └─ Pod 内运行：GCS + Raylet + Dashboard<br>  │<br>  ├─→ 发现 Worker replicas 不够 → 创建 Worker Pod<br>  │     └─ Pod 内运行：Raylet + Worker 进程<br>  │<br>  ├─→ 创建 Service（Head 对外暴露端口）<br>  │<br>  └─→ Job 场景：集群就绪后 → 创建 Driver Pod 执行 entrypoint<br>        │<br>        ▼<br>      训练完成<br>        │<br>        └─→ shutdownAfterJobFinishes=true → 删除整个集群</p>
 <p>实质就是先有k8s将用户创建资源信息存储到etcd。然后 K8s 自带的和第三方 Operator，他们的controller都会watch etcd，是kubeRay的controller能监听到kubeRay的资源，所以触发了KubeRay的调谐逻辑。而KubeRay的调谐逻辑，核心就是搭建ray集群，执行任务或是部署服务。</p>
 <p><strong>K8s Cluster</strong></p>
 <ul>
@@ -354,27 +324,29 @@
 </ul>
 <p>Worker Pod — 计算节点，可多副本扩缩，包含：</p>
 <ul>
-<li>Raylet：本地资源管理（CPU&#x2F;GPU&#x2F;内存注册）、任务调度、对象存储管理（Plasma）</li>
+<li>Raylet：本地资源管理（CPU/GPU/内存注册）、任务调度、对象存储管理（Plasma）</li>
 <li>Worker 进程：实际执行用户代码的进程，数量由 Pod 的 CPU 资源决定</li>
 </ul>
 <p>注：Ray 2.x：Plasma 已经合并进 Raylet 进程内部，不再独立存在</p>
 <p>Ray Node（逻辑概念） → Ray Pod（K8s物理载体），主要是生命周期交给了 K8s 管理</p>
+<div class="table-container">
 <table>
 <thead>
 <tr>
 <th>维度</th>
-<th>Ray Node（裸机&#x2F;Docker）</th>
+<th>Ray Node（裸机/Docker）</th>
 <th>Ray Pod（K8s）</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>进程组成</td>
 <td>相同</td>
 <td>相同</td>
 </tr>
 <tr>
 <td>资源分配</td>
-<td>手动指定 –num-cpus</td>
+<td>手动指定 —num-cpus</td>
 <td>Pod resources.limits 自动映射</td>
 </tr>
 <tr>
@@ -384,7 +356,7 @@
 </tr>
 <tr>
 <td>服务发现</td>
-<td>手动指定 –address</td>
+<td>手动指定 —address</td>
 <td>Head Service 自动注入</td>
 </tr>
 <tr>
@@ -392,19 +364,20 @@
 <td>手动 ray up 加机器</td>
 <td>改 replicas 即可</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
+</div>
 <h2 id="2-KubeRay的使用"><a href="#2-KubeRay的使用" class="headerlink" title="2.KubeRay的使用"></a>2.KubeRay的使用</h2><h3 id="2-1-插件安装"><a href="#2-1-插件安装" class="headerlink" title="2.1 插件安装"></a>2.1 插件安装</h3><p>KubeRay Operator 是个独立组件，需要部署到 K8s 集群里<br>kubectl apply -f <a target="_blank" rel="noopener" href="https://github.com/ray-project/kuberay/releases/latest/download/kuberay-operator.yaml">https://github.com/ray-project/kuberay/releases/latest/download/kuberay-operator.yaml</a></p>
 <p>k8s安装插件原理：<br>插件实质就是一组k8s资源。因此也就是让k8s运行这些资源就表示安装了插件。</p>
 <p>KubeRay插件资源说明：<br>CRD*3：注册 RayCluster、RayJob、RayService 三种自定义资源类型。<br>Deployment（核心）：Operator 本身，在k8s集群上运行这个pod，里面包含ray crd相关的controller。其会被运行在某一个k8s node节点上。<br>ClusterRole + ClusterRoleBinding + ServiceAccount：RBAC，权限相关。声明 Operator 需要的权限并绑定到其身份，从而能操作 Pod、Service 等<br>Namespace：创建 ray-system 命名空间</p>
 <p>安装注意点：<br>1、kuberay的版本需要与k8s的版本兼容<br>2、插件安装时保证最小权限，同时安装插件需要有管理员权限（kubeconfig）</p>
-<h3 id="2-2-RayJob的yaml配置"><a href="#2-2-RayJob的yaml配置" class="headerlink" title="2.2 RayJob的yaml配置"></a>2.2 RayJob的yaml配置</h3><p>最小配置：</p>
-<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">ray.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">RayJob</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">rl-training-job</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">rayClusterConfig:</span></span><br><span class="line">    <span class="attr">rayVersion:</span> <span class="string">&#x27;2.9.0&#x27;</span></span><br><span class="line">    <span class="attr">headGroupSpec:</span></span><br><span class="line">      <span class="attr">rayStartParams:</span></span><br><span class="line">        <span class="attr">dashboard-host:</span> <span class="string">&#x27;0.0.0.0&#x27;</span></span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-head</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">            <span class="attr">resources:</span></span><br><span class="line">              <span class="attr">limits:</span></span><br><span class="line">                <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">                <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">    <span class="attr">workerGroupSpecs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">replicas:</span> <span class="number">2</span></span><br><span class="line">      <span class="attr">rayStartParams:</span> &#123;&#125;</span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-worker</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">          <span class="attr">resources:</span></span><br><span class="line">            <span class="attr">limits:</span></span><br><span class="line">              <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">              <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">  <span class="attr">entrypoint:</span> <span class="string">python</span> <span class="string">/app/train.py</span></span><br><span class="line">  <span class="attr">shutdownAfterJobFinishes:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">ttlSecondsAfterFinished:</span> <span class="number">300</span></span><br></pre></td></tr></table></figure>
-
+<h3 id="2-2-RayJob的yaml配置"><a href="#2-2-RayJob的yaml配置" class="headerlink" title="2.2 RayJob的yaml配置"></a>2.2 RayJob的yaml配置</h3><p>最小配置：<br><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">ray.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">RayJob</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">rl-training-job</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">rayClusterConfig:</span></span><br><span class="line">    <span class="attr">rayVersion:</span> <span class="string">&#x27;2.9.0&#x27;</span></span><br><span class="line">    <span class="attr">headGroupSpec:</span></span><br><span class="line">      <span class="attr">rayStartParams:</span></span><br><span class="line">        <span class="attr">dashboard-host:</span> <span class="string">&#x27;0.0.0.0&#x27;</span></span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-head</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">            <span class="attr">resources:</span></span><br><span class="line">              <span class="attr">limits:</span></span><br><span class="line">                <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">                <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">    <span class="attr">workerGroupSpecs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">replicas:</span> <span class="number">2</span></span><br><span class="line">      <span class="attr">rayStartParams:</span> &#123;&#125;</span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-worker</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">          <span class="attr">resources:</span></span><br><span class="line">            <span class="attr">limits:</span></span><br><span class="line">              <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">              <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">  <span class="attr">entrypoint:</span> <span class="string">python</span> <span class="string">/app/train.py</span></span><br><span class="line">  <span class="attr">shutdownAfterJobFinishes:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">ttlSecondsAfterFinished:</span> <span class="number">300</span></span><br></pre></td></tr></table></figure></p>
 <h3 id="2-3-RayJob创建"><a href="#2-3-RayJob创建" class="headerlink" title="2.3 RayJob创建"></a>2.3 RayJob创建</h3><p>RayJob属于k8s资源，其创建方式同k8s其他资源<br>kubectl apply -f XX.yaml</p>
-<p>RayJob 是 CRD，KubeRay reconcile 后创建的实际 K8s 资源是Pod（Head&#x2F;Worker&#x2F;Driver），不是 K8s Job。</p>
+<p>RayJob 是 CRD，KubeRay reconcile 后创建的实际 K8s 资源是Pod（Head/Worker/Driver），不是 K8s Job。</p>
 <h2 id="3-KubeRay-Volcano-协作"><a href="#3-KubeRay-Volcano-协作" class="headerlink" title="3.KubeRay + Volcano 协作"></a>3.KubeRay + Volcano 协作</h2><h3 id="3-1-为什么需要Volcano"><a href="#3-1-为什么需要Volcano" class="headerlink" title="3.1 为什么需要Volcano"></a>3.1 为什么需要Volcano</h3><p>K8s默认调度器逐个调度Pod，Ray集群的Head+Worker可能分散调度，部分Pod因资源不够Pending，已调度的Pod空跑等队友。</p>
 <p>Volcano提供<strong>Gang Scheduling</strong>：要么所有Pod一起分配，要么全不分，避免资源碎片。</p>
-<h3 id="3-2-Volcano的组成"><a href="#3-2-Volcano的组成" class="headerlink" title="3.2 Volcano的组成"></a>3.2 Volcano的组成</h3><table>
+<h3 id="3-2-Volcano的组成"><a href="#3-2-Volcano的组成" class="headerlink" title="3.2 Volcano的组成"></a>3.2 Volcano的组成</h3><div class="table-container">
+<table>
 <thead>
 <tr>
 <th>组件</th>
@@ -412,10 +385,11 @@
 <th>作用</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>volcano-scheduler</td>
 <td>调度器（Pod）</td>
-<td>替换default-scheduler，执行Gang&#x2F;优先级&#x2F;抢占调度</td>
+<td>替换default-scheduler，执行Gang/优先级/抢占调度</td>
 </tr>
 <tr>
 <td>PodGroup</td>
@@ -432,22 +406,22 @@
 <td>CRD</td>
 <td>多角色任务模板（如MPIJob），自动创建Pod+PodGroup</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
+</div>
 <ul>
 <li><strong>volcano-scheduler + PodGroup</strong>：KubeRay场景只用这两层，调度器替换+调度约束</li>
 <li><strong>VolcanoJob</strong>：给没有专属Operator的框架用（如原生MPI），有KubeRay时不需要</li>
 </ul>
 <h3 id="3-3-KubeRay场景Volcano的使用方式"><a href="#3-3-KubeRay场景Volcano的使用方式" class="headerlink" title="3.3 KubeRay场景Volcano的使用方式"></a>3.3 KubeRay场景Volcano的使用方式</h3><p>KubeRay仅使用Volcano的调度器。k8s支持指定调度器，因此只要在RayJob的yaml里指定k8s的调度器即可。即pod template里指定<code>schedulerName: volcano</code>，KubeRay自动创建PodGroup，不需要手动管理。</p>
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">ray.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">RayJob</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">rl-training</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">rayClusterConfig:</span></span><br><span class="line">    <span class="attr">rayVersion:</span> <span class="string">&#x27;2.9.0&#x27;</span></span><br><span class="line">    <span class="attr">headGroupSpec:</span></span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">schedulerName:</span> <span class="string">volcano</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-head</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">            <span class="attr">resources:</span></span><br><span class="line">              <span class="attr">limits:</span></span><br><span class="line">                <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">                <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">    <span class="attr">workerGroupSpecs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">replicas:</span> <span class="number">3</span></span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">schedulerName:</span> <span class="string">volcano</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-worker</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">            <span class="attr">resources:</span></span><br><span class="line">              <span class="attr">limits:</span></span><br><span class="line">                <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">                <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">  <span class="attr">entrypoint:</span> <span class="string">python</span> <span class="string">/app/train.py</span></span><br><span class="line">  <span class="attr">shutdownAfterJobFinishes:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
-
 <h3 id="3-4-Volcano-Gang调度核心流程"><a href="#3-4-Volcano-Gang调度核心流程" class="headerlink" title="3.4 Volcano Gang调度核心流程"></a>3.4 Volcano Gang调度核心流程</h3><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">1. Pod创建，annotation指定所属PodGroup</span><br><span class="line">2. 调度器按PodGroup归拢所有Pending的Pod</span><br><span class="line">3. 检查PodGroup的minMember是否凑齐</span><br><span class="line">4. 检查集群资源是否够分配所有成员</span><br><span class="line">5. 够 → 全部分配；不够 → 全部等待</span><br></pre></td></tr></table></figure>
-
 <figure class="highlight go"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">func</span> <span class="params">(s *Scheduler)</span></span> Schedule(pods []*v1.Pod, podGroups <span class="keyword">map</span>[<span class="type">string</span>]*PodGroup) &#123;</span><br><span class="line">    group := <span class="built_in">make</span>(<span class="keyword">map</span>[<span class="type">string</span>][]*v1.Pod)</span><br><span class="line">    <span class="keyword">for</span> _, pod := <span class="keyword">range</span> pods &#123;</span><br><span class="line">        groupName := pod.Annotations[<span class="string">&quot;scheduling.volcano.sh/group-name&quot;</span>]</span><br><span class="line">        group[groupName] = <span class="built_in">append</span>(group[groupName], pod)</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">for</span> name, members := <span class="keyword">range</span> group &#123;</span><br><span class="line">        pg := podGroups[name]</span><br><span class="line">        <span class="keyword">if</span> <span class="built_in">len</span>(members) &lt; pg.MinMember &#123;</span><br><span class="line">            <span class="keyword">continue</span> <span class="comment">// 没凑齐，全部跳过</span></span><br><span class="line">        &#125;</span><br><span class="line">        needed := sumResources(members)</span><br><span class="line">        <span class="keyword">if</span> !s.cluster.HasEnough(needed) &#123;</span><br><span class="line">            <span class="keyword">continue</span> <span class="comment">// 资源不够，全部等</span></span><br><span class="line">        &#125;</span><br><span class="line">        <span class="keyword">for</span> _, pod := <span class="keyword">range</span> members &#123;</span><br><span class="line">            s.cluster.Allocate(pod) <span class="comment">// 全部分配</span></span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/kuberay/" data-id="cuid2pCvXYPw10wVX4UcRUva_" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/kuberay/" data-id="cuidnR2oVItB4thJEp_zU7kFt" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -487,54 +461,52 @@
       
         <h1 id="分布式训练综合优化实战"><a href="#分布式训练综合优化实战" class="headerlink" title="分布式训练综合优化实战"></a>分布式训练综合优化实战</h1><p>本文将讲述几个具体模型的优化实战</p>
 <h2 id="环境说明"><a href="#环境说明" class="headerlink" title="环境说明"></a>环境说明</h2><p>使用AutoDL平台<br>框架：FSDP<br>硬件：5090 x 2（32GB×2）</p>
-<h2 id="性能指标"><a href="#性能指标" class="headerlink" title="性能指标"></a>性能指标</h2><p>tokens&#x2F;s：每秒处理的 token 总数（双卡合计），直接反映训练吞吐。batch 越大、通信开销占比越小，tokens&#x2F;s越高。<br>不选择 MFU 的原因：MFU 需要精确的理论 TFLOPS 和 FLOPs 乘数，这两者在实际环境中难以准确获取（sparse vs dense tensor core、模型架构差异等），算出来的值容易失真。tokens&#x2F;s 是直接实测值，简单可靠。</p>
-<h2 id="Llama3-8B优化实战"><a href="#Llama3-8B优化实战" class="headerlink" title="Llama3-8B优化实战"></a>Llama3-8B优化实战</h2><h3 id="模型分析"><a href="#模型分析" class="headerlink" title="模型分析"></a>模型分析</h3><p>Llama3-8B，依据之前的显存账单计算公式：8*16 &#x3D; 128 GiB<br>显存：32GB×2，显然存不下来。</p>
+<h2 id="性能指标"><a href="#性能指标" class="headerlink" title="性能指标"></a>性能指标</h2><p>tokens/s：每秒处理的 token 总数（双卡合计），直接反映训练吞吐。batch 越大、通信开销占比越小，tokens/s越高。<br>不选择 MFU 的原因：MFU 需要精确的理论 TFLOPS 和 FLOPs 乘数，这两者在实际环境中难以准确获取（sparse vs dense tensor core、模型架构差异等），算出来的值容易失真。tokens/s 是直接实测值，简单可靠。</p>
+<h2 id="Llama3-8B优化实战"><a href="#Llama3-8B优化实战" class="headerlink" title="Llama3-8B优化实战"></a>Llama3-8B优化实战</h2><h3 id="模型分析"><a href="#模型分析" class="headerlink" title="模型分析"></a>模型分析</h3><p>Llama3-8B，依据之前的显存账单计算公式：8*16 = 128 GiB<br>显存：32GB×2，显然存不下来。</p>
 <h3 id="第一阶段：能跑起来"><a href="#第一阶段：能跑起来" class="headerlink" title="第一阶段：能跑起来"></a>第一阶段：能跑起来</h3><p>初始状态：<br>BF16 + FSDP 全分片 + AdamW，FSDP 将 P+G+O 均分到 2 卡</p>
-<p>核心瓶颈：<br>理论每卡约 64 GiB，但实际训练时 forward&#x2F;backward 还需要临时显存（激活值、通信 buffer 等），因此在 optimizer.step() 之前就已经 OOM。</p>
+<p>核心瓶颈：<br>理论每卡约 64 GiB，但实际训练时 forward/backward 还需要临时显存（激活值、通信 buffer 等），因此在 optimizer.step() 之前就已经 OOM。</p>
 <p>解决方法：<br>CPU offload</p>
 <p>实测数据：<br>开启 CPU offload 后 P 和 O 搬到 CPU，GPU主要承担计算，峰值降到 15.5GiB。</p>
-<p>系统资源利用率（mb&#x3D;1, offload&#x3D;true）：</p>
+<p>系统资源利用率（mb=1, offload=true）：</p>
 <p>┌──────────────┬──────────┐<br>│     指标     │   数值   │<br>├──────────────┼──────────┤<br>│ GPU 利用率   │ ~54%     │<br>│ CPU 利用率   │ ~20%     │<br>│ 内存占用     │ ~17%     │<br>└──────────────┴──────────┘</p>
 <p>GPU 利用率仅 54%，说明大量时间花在 CPU↔GPU 数据搬运上，GPU 处于等待状态。这也是后续优化的空间所在。</p>
-<p><img src="/images/8b_utilization.png" alt="8B 基线资源利用率"></p>
-<h3 id="第二阶段：性能优化调试"><a href="#第二阶段：性能优化调试" class="headerlink" title="第二阶段：性能优化调试"></a>第二阶段：性能优化调试</h3><p>方法：抬 throughput（固定 seq&#x3D;512, offload&#x3D;true）</p>
+<p><img src="images/8b_utilization.png" alt="8B 基线资源利用率"></p>
+<h3 id="第二阶段：性能优化调试"><a href="#第二阶段：性能优化调试" class="headerlink" title="第二阶段：性能优化调试"></a>第二阶段：性能优化调试</h3><p>方法：抬 throughput（固定 seq=512, offload=true）</p>
 <p>在 offload 约束下扫 micro-batch：</p>
-<p>┌─────────────┬──────────┬──────────┬──────┐<br>│ micro_batch │ tokens&#x2F;s │ 峰值显存 │ 结果 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 1           │ ~165     │ 15.5 GiB │ 基线 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 2           │ ~307     │ 15.7 GiB │      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 4           │ ~584     │ 19.3 GiB │      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 6           │ ~875     │ 27.2 GiB │      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 7           │ —        │ —        │ OOM  │<br>└─────────────┴──────────┴──────────┴──────┘</p>
-<p>从 mb&#x3D;1 到 mb&#x3D;6，throughput 提升约 5.3 倍。但 mb&#x3D;7 时显存触顶（27.2 GiB 已接近 32GB 上限，加上通信 buffer 就 OOM了）。</p>
-<p>图解（tokens&#x2F;s 与显存随 mb 变化）：</p>
-<p><img src="/images/8b_mb_sweep_offload.png" alt="8B mb sweep - 低区间"></p>
-<p><img src="/images/8b_mb_sweep_high.png" alt="8B mb sweep - 高区间"></p>
-<p>随着 mb 增大，tokens&#x2F;s 近线性增长，显存也同步上升。mb 越大，每次 GPU 计算量越充分，通信开销占比越小，吞吐效率越高。</p>
+<p>┌─────────────┬──────────┬──────────┬──────┐<br>│ micro_batch │ tokens/s │ 峰值显存 │ 结果 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 1           │ ~165     │ 15.5 GiB │ 基线 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 2           │ ~307     │ 15.7 GiB │      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 4           │ ~584     │ 19.3 GiB │      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 6           │ ~875     │ 27.2 GiB │      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 7           │ —        │ —        │ OOM  │<br>└─────────────┴──────────┴──────────┴──────┘</p>
+<p>从 mb=1 到 mb=6，throughput 提升约 5.3 倍。但 mb=7 时显存触顶（27.2 GiB 已接近 32GB 上限，加上通信 buffer 就 OOM了）。</p>
+<p>图解（tokens/s 与显存随 mb 变化）：</p>
+<p><img src="images/8b_mb_sweep_offload.png" alt="8B mb sweep - 低区间"></p>
+<p><img src="images/8b_mb_sweep_high.png" alt="8B mb sweep - 高区间"></p>
+<p>随着 mb 增大，tokens/s 近线性增长，显存也同步上升。mb 越大，每次 GPU 计算量越充分，通信开销占比越小，吞吐效率越高。</p>
 <h3 id="第三阶段：用-AC-性能优化"><a href="#第三阶段：用-AC-性能优化" class="headerlink" title="第三阶段：用 AC 性能优化"></a>第三阶段：用 AC 性能优化</h3><p>mb 上不去，尝试 activation checkpointing + 降低 seq_len 换显存，再抬 mb：</p>
-<p>┌────────────────┬─────────────┬──────────┬──────────┐<br>│      配置      │ micro_batch │ tokens&#x2F;s │ 峰值显存 │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq&#x3D;512, 无 AC │ mb&#x3D;6        │ ~875     │ 27.2 GiB │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq&#x3D;512, 无 AC │ mb&#x3D;7        │ —        │ OOM      │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq&#x3D;448, 有 AC │ mb&#x3D;6        │ ~801     │ 16.0 GiB │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq&#x3D;448, 有 AC │ mb&#x3D;7        │ ~936     │ 16.1 GiB │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq&#x3D;448, 有 AC │ mb&#x3D;8        │ ~1068    │ 16.2 GiB │<br>└────────────────┴─────────────┴──────────┴──────────┘</p>
-<p>AC 把激活值从 776MB 降到 264MB，省出来的显存刚好够抬一步 mb。最终 seq&#x3D;448 + AC + mb&#x3D;8 达到 &gt;1000 tok&#x2F;s。</p>
-<p><img src="/images/8b_ac_experiment.png" alt="8B AC 实验（seq&#x3D;448, gradient_checkpointing）"></p>
+<p>┌────────────────┬─────────────┬──────────┬──────────┐<br>│      配置      │ micro_batch │ tokens/s │ 峰值显存 │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq=512, 无 AC │ mb=6        │ ~875     │ 27.2 GiB │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq=512, 无 AC │ mb=7        │ —        │ OOM      │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq=448, 有 AC │ mb=6        │ ~801     │ 16.0 GiB │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq=448, 有 AC │ mb=7        │ ~936     │ 16.1 GiB │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq=448, 有 AC │ mb=8        │ ~1068    │ 16.2 GiB │<br>└────────────────┴─────────────┴──────────┴──────────┘</p>
+<p>AC 把激活值从 776MB 降到 264MB，省出来的显存刚好够抬一步 mb。最终 seq=448 + AC + mb=8 达到 &gt;1000 tok/s。</p>
+<p><img src="images/8b_ac_experiment.png" alt="8B AC 实验（seq=448, gradient_checkpointing）"></p>
 <p>AC 牺牲了少量 throughput（以计算换显存），但换来了 mb 的提升空间，最终综合吞吐反而更高。</p>
 <h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>8B 在双卡 32GB 上的优化路径：</p>
-<p>OOM → offload（能跑）→ 扫 mb（5.3x）→ 加 AC（突破 mb 瓶颈，&gt;1000 tok&#x2F;s）</p>
-<p>瓶颈变化：显存不够 → offload 后通信&#x2F;CPU 成为瓶颈 → AC 省显存后继续抬 batch</p>
-<p>全流程 tokens&#x2F;s 演进：</p>
+<p>OOM → offload（能跑）→ 扫 mb（5.3x）→ 加 AC（突破 mb 瓶颈，&gt;1000 tok/s）</p>
+<p>瓶颈变化：显存不够 → offload 后通信/CPU 成为瓶颈 → AC 省显存后继续抬 batch</p>
+<p>全流程 tokens/s 演进：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">165 → 584 → 875 → 1068</span><br><span class="line"> │      │      │      │</span><br><span class="line">offload mb=4  mb=6  AC+mb=8</span><br><span class="line">(能跑)  (3.5x) (5.3x) (最终)</span><br></pre></td></tr></table></figure>
-
 <h2 id="Qwen-3B优化实战"><a href="#Qwen-3B优化实战" class="headerlink" title="Qwen-3B优化实战"></a>Qwen-3B优化实战</h2><h3 id="模型分析-1"><a href="#模型分析-1" class="headerlink" title="模型分析"></a>模型分析</h3><p>Qwen2.5-3B，BF16 + AdamW。</p>
 <p>与 8B 的核心差异：3B 的 P+G+O 在双卡 no_shard（DDP）模式下可以直接放下（基线峰值 ~27 GiB），不需要 CPU offload。8B是”在显存夹缝里求生”，3B 是”显存充裕，优化重点在算子层面”。</p>
-<h3 id="第一阶段：基线跑通"><a href="#第一阶段：基线跑通" class="headerlink" title="第一阶段：基线跑通"></a>第一阶段：基线跑通</h3><p>配置：no_shard + sdpa + fused_adam + tf32，offload&#x3D;false</p>
-<p>直接跑通，无需 offload。基线：mb&#x3D;1, seq&#x3D;512，~1734 tok&#x2F;s，峰值 26.75 GiB。</p>
-<h3 id="第二阶段：扫-micro-batch-提吞吐"><a href="#第二阶段：扫-micro-batch-提吞吐" class="headerlink" title="第二阶段：扫 micro-batch 提吞吐"></a>第二阶段：扫 micro-batch 提吞吐</h3><p>┌─────────────┬──────────┬──────────┬──────┐<br>│ micro_batch │ tokens&#x2F;s │ 峰值显存 │ 结果 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 1           │ ~1734    │ 26.75 GiB│ 基线 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 2           │ ~3172    │ 29.85 GiB│      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ ≥4          │ —        │ —        │ OOM  │<br>└─────────────┴──────────┴──────────┴──────┘</p>
-<p>mb&#x3D;1→2：throughput 提升 ~1.8x，显存增加 ~3 GiB。mb&#x3D;4 即 OOM，3B 虽然不需要 offload，但单卡 32GB 放下完整模型后剩余空间有限，mb 上限很低。</p>
-<p>图解（tokens&#x2F;s 随 mb 变化）：</p>
-<p><img src="/images/3b_mb_sweep.png" alt="3B mb sweep"></p>
-<h3 id="与-8B-优化思路对比"><a href="#与-8B-优化思路对比" class="headerlink" title="与 8B 优化思路对比"></a>与 8B 优化思路对比</h3><p>┌────────────────┬───────────────────┬───────────────────┐<br>│     维度       │  8B（双卡32GB）   │  3B（双卡32GB）   │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 初始状态       │ OOM               │ 直接能跑          │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 是否需要 offload│ 必须              │ 不需要            │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 优化路径       │ offload→扫mb→AC   │ 直接扫mb          │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 最高 tokens&#x2F;s  │ ~1068             │ ~3172             │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 瓶颈变化       │ 显存→CPU通信→显存 │ 显存（mb上限）    │<br>└────────────────┴───────────────────┴───────────────────┘</p>
+<h3 id="第一阶段：基线跑通"><a href="#第一阶段：基线跑通" class="headerlink" title="第一阶段：基线跑通"></a>第一阶段：基线跑通</h3><p>配置：no_shard + sdpa + fused_adam + tf32，offload=false</p>
+<p>直接跑通，无需 offload。基线：mb=1, seq=512，~1734 tok/s，峰值 26.75 GiB。</p>
+<h3 id="第二阶段：扫-micro-batch-提吞吐"><a href="#第二阶段：扫-micro-batch-提吞吐" class="headerlink" title="第二阶段：扫 micro-batch 提吞吐"></a>第二阶段：扫 micro-batch 提吞吐</h3><p>┌─────────────┬──────────┬──────────┬──────┐<br>│ micro_batch │ tokens/s │ 峰值显存 │ 结果 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 1           │ ~1734    │ 26.75 GiB│ 基线 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 2           │ ~3172    │ 29.85 GiB│      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ ≥4          │ —        │ —        │ OOM  │<br>└─────────────┴──────────┴──────────┴──────┘</p>
+<p>mb=1→2：throughput 提升 ~1.8x，显存增加 ~3 GiB。mb=4 即 OOM，3B 虽然不需要 offload，但单卡 32GB 放下完整模型后剩余空间有限，mb 上限很低。</p>
+<p>图解（tokens/s 随 mb 变化）：</p>
+<p><img src="images/3b_mb_sweep.png" alt="3B mb sweep"></p>
+<h3 id="与-8B-优化思路对比"><a href="#与-8B-优化思路对比" class="headerlink" title="与 8B 优化思路对比"></a>与 8B 优化思路对比</h3><p>┌────────────────┬───────────────────┬───────────────────┐<br>│     维度       │  8B（双卡32GB）   │  3B（双卡32GB）   │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 初始状态       │ OOM               │ 直接能跑          │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 是否需要 offload│ 必须              │ 不需要            │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 优化路径       │ offload→扫mb→AC   │ 直接扫mb          │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 最高 tokens/s  │ ~1068             │ ~3172             │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 瓶颈变化       │ 显存→CPU通信→显存 │ 显存（mb上限）    │<br>└────────────────┴───────────────────┴───────────────────┘</p>
 <h3 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h3><p>3B 优化路径：直接跑 → 扫 mb（~1.8x）。</p>
-<p>全流程 tokens&#x2F;s 演进：</p>
+<p>全流程 tokens/s 演进：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">1734 → 3172</span><br><span class="line"> │      │</span><br><span class="line">基线   mb=2</span><br><span class="line">(mb=1) (1.8x)</span><br></pre></td></tr></table></figure>
-
 <p>相比 8B 需要多步（offload → 扫mb → AC → 调seq），3B 只需一步就触到天花板。原因很简单：显存够用，不需要 offload 和 AC 这类”以XX换显存”的手段，但 mb 上限仍然受限于激活值显存（no_shard 下每卡放完整模型，剩余空间有限）。要继续提吞吐，需要从算子层面入手（torch.compile、FlashAttention），但这些在当前环境下存在兼容性问题。</p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%837-%E7%BB%BC%E5%90%88%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98/" data-id="cuid6LFGcGQglVdfB0aBt5gsT" data-title="分布式训练综合优化实战" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%837-%E7%BB%BC%E5%90%88%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98/" data-id="cuid7GDmWbC_s6p0bWPZaBMHj" data-title="分布式训练综合优化实战" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -576,11 +548,11 @@
 <h2 id="1-TP-Tensor-Parallelism-——-张量并行"><a href="#1-TP-Tensor-Parallelism-——-张量并行" class="headerlink" title="1. TP (Tensor Parallelism) —— 张量并行"></a>1. TP (Tensor Parallelism) —— 张量并行</h2><h3 id="1-1-核心逻辑：把矩阵乘法拆开"><a href="#1-1-核心逻辑：把矩阵乘法拆开" class="headerlink" title="1.1 核心逻辑：把矩阵乘法拆开"></a>1.1 核心逻辑：把矩阵乘法拆开</h3><p>TP 不是在层与层之间切分，而是在 <strong>层内部</strong> 把矩阵乘法（Matrix Multiplication）拆分到多张卡上并行计算。</p>
 <h4 id="1-MLP-层的切分（纵切-横切）"><a href="#1-MLP-层的切分（纵切-横切）" class="headerlink" title="1. MLP 层的切分（纵切 + 横切）"></a>1. MLP 层的切分（纵切 + 横切）</h4><p>这是 Megatron 最精妙的地方，为了尽量减少通信，它采用了“两层一组”的策略：</p>
 <ul>
-<li><strong>第一层（纵切&#x2F;Column Parallel）</strong>：把权重矩阵 $W$ 按列切开。每张卡算出输出的一部分。</li>
-<li><strong>第二层（横切&#x2F;Row Parallel）</strong>：把权重矩阵 $W’$ 按行切开。每张卡直接拿上一层的局部输出进行计算。</li>
+<li><strong>第一层（纵切/Column Parallel）</strong>：把权重矩阵 $W$ 按列切开。每张卡算出输出的一部分。</li>
+<li><strong>第二层（横切/Row Parallel）</strong>：把权重矩阵 $W’$ 按行切开。每张卡直接拿上一层的局部输出进行计算。</li>
 <li><strong>为什么这么做？</strong>：连续两个线性层如果用同一种切法，中间就必须通信。只有纵切+横切的组合能让第一层的输出直接作为第二层的输入，实现两层之间零通信。这是由矩阵运算的性质决定的，不是优化策略，而是唯一可行的方式</li>
 </ul>
-<p>实际例子：<br>X &#x3D; [x1 x2 …]<br>W1 &#x3D; [A B]<br>W2 &#x3D; [C]<br>     [D]<br>X * W1 * W2 &#x3D; [XA XB] * W2 &#x3D; [XAC+XBD]<br>卡1: X * W1_Left * W2_top&#x3D; [XAC]<br>卡2: X * W1_Right * W2_bottom &#x3D; [XBD]<br>Reduce求和: [XAC+XBD]</p>
+<p>实际例子：<br>X = [x1 x2 …]<br>W1 = [A B]<br>W2 = [C]<br>     [D]<br>X <em> W1 </em> W2 = [XA XB] <em> W2 = [XAC+XBD]<br>卡1: X </em> W1_Left <em> W2_top= [XAC]<br>卡2: X </em> W1_Right * W2_bottom = [XBD]<br>Reduce求和: [XAC+XBD]</p>
 <p>因此（纵切 + 横切）需要进行一次通信</p>
 <h4 id="2-Attention-层的切分"><a href="#2-Attention-层的切分" class="headerlink" title="2. Attention 层的切分"></a>2. Attention 层的切分</h4><ul>
 <li>同样利用了多头注意力（Multi-Head Attention）的特性，把不同的 <strong>Head</strong> 分给不同的显卡。</li>
@@ -620,26 +592,26 @@
 <p>两卡示例：<br>GPU0: [F1] [F2] [  ] [B1] [F3] [B2] [F4] [B3] [  ] [B4]<br>GPU1: [  ] [F1] [B1] [F2] [B2] [F3] [B3] [F4] [B4] [  ]</p>
 <p>气泡只在首尾，中间的稳态阶段 GPU 基本没有空闲。micro-batch 越多，首尾气泡占比越小。</p>
 <h2 id="3D并行"><a href="#3D并行" class="headerlink" title="3D并行"></a>3D并行</h2><p>3D 并行就是把 TP、PP、DP 三种并行嵌套套在一起用，同时训练一个超大模型。需要合理配置这三者的值。</p>
-<p>嵌套顺序：<br>最外层：DP&#x2F;ZeRO（跨机，All-Reduce，通信频率最低）<br>└─ 中间层：PP（跨机，相邻卡点对点，通信频率中等）<br>        └─ 最内层：TP（单机内，NVLink，通信频率最高）</p>
-<p>配置原则：<br>总 GPU 数 &#x3D; TP × PP × DP，三个值相乘等于你拥有的卡数<br>TP 通信最密集，因此尽量在一台机子内，所以最大不超过8<br>TP 和 PP 能小就小，保证切分后的参数能存到最少的GPU内，剩下的全给 DP<br>TP 和 PP 两者的具体取值根据实际情况确定</p>
-<p>举例，假设有 64 张卡（8 台机器，每台 8 卡）：<br>DP&#x3D;4, PP&#x3D;2, TP&#x3D;8<br>总共需要：4 × 2 × 8 &#x3D; 64 张卡<br>每份数据并行的副本 &#x3D; PP&#x3D;2 × TP&#x3D;8 &#x3D; 16 张卡</p>
+<p>嵌套顺序：<br>最外层：DP/ZeRO（跨机，All-Reduce，通信频率最低）<br>└─ 中间层：PP（跨机，相邻卡点对点，通信频率中等）<br>        └─ 最内层：TP（单机内，NVLink，通信频率最高）</p>
+<p>配置原则：<br>总 GPU 数 = TP × PP × DP，三个值相乘等于你拥有的卡数<br>TP 通信最密集，因此尽量在一台机子内，所以最大不超过8<br>TP 和 PP 能小就小，保证切分后的参数能存到最少的GPU内，剩下的全给 DP<br>TP 和 PP 两者的具体取值根据实际情况确定</p>
+<p>举例，假设有 64 张卡（8 台机器，每台 8 卡）：<br>DP=4, PP=2, TP=8<br>总共需要：4 × 2 × 8 = 64 张卡<br>每份数据并行的副本 = PP=2 × TP=8 = 16 张卡</p>
 <h2 id="Megatron"><a href="#Megatron" class="headerlink" title="Megatron"></a>Megatron</h2><p>就是使用3D并行训练的框架</p>
 <p>1、准备数据集<br>Megatron 的数据格式跟 HuggingFace 不同。HuggingFace 通常读 JSONL 或 parquet，Megatron 要求转成二进制格式（numpy memory-mapped 文件）。</p>
 <p>原因是：大模型训练时数据量很大（TB 级），JSONL 解析太慢，转成二进制后可以直接内存映射读取，IO 效率高很多。</p>
-<p>Megatron 提供了转换脚本，类似：<br>python tools&#x2F;preprocess_data.py –input my_data.jsonl –output_prefix my_data –tokenizer-type GPT2BPETokenizer<br>产出两个文件：.bin（tokenized 数据）和 .idx（索引文件）。</p>
+<p>Megatron 提供了转换脚本，类似：<br>python tools/preprocess_data.py —input my_data.jsonl —output_prefix my_data —tokenizer-type GPT2BPETokenizer<br>产出两个文件：.bin（tokenized 数据）和 .idx（索引文件）。</p>
 <p>2、准备模型与模型转换<br>Megatron 的权重存储方式跟 HuggingFace 不一样。HF 是直接存完整的权重矩阵，Megatron 因为要做 TP切分，权重是按切分方式存储的。</p>
 <p>所以如果要用 HF 上预训练好的模型（比如 LLaMA、Qwen），需要做一次格式转换。Megatron 提供了转换脚本，把 HF 的pytorch_model.bin 转成 Megatron 能识别的 checkpoint。</p>
 <p>3、安装环境<br>最优：有一个已经集成的镜像。否则就只能自己做镜像了。<br>找一个合适的基础镜像，如NVIDIA 官方的 PyTorch 容器（包含 CUDA、NCCL 等底层库）<br>从 GitHub 拉取 Megatron-LM，pip 安装依赖（主要是版本兼容的问题——CUDA、PyTorch、NCCL、Megatron）<br>每个库安装完后，均需要做验证<br>过程中根据出现的bug进行修复。还有Megatron-LM能够找到一个稳定的commit记录，避免其更新产生依赖不兼容匹配。</p>
 <p>4、编写训练程序<br>略。因为框架将大部分内容都已经封装了。而且往往会使用现成的基模型与数据集，只需在配置参数里配置好即可开始训练。</p>
 <p>5、配置参数并运行启动脚本<br>Megatron 的参数主要通过命令行参数传入：</p>
-<p>torchrun –nproc_per_node&#x3D;8 pretrain_gpt.py <br>  –tensor-model-parallel-size 8 <br>  –pipeline-model-parallel-size 2 <br>  –num-layers 32 <br>  –hidden-size 4096 <br>  –num-attention-heads 32 <br>  –seq-length 2048 <br>  –micro-batch-size 4 <br>  –global-batch-size 512 <br>  –train-iters 500000 <br>  –data-path my_data_text_document</p>
-<p>其中 tensor-model-parallel-size 和 pipeline-model-parallel-size 就是控制 TP 和 PP<br>的，设好这两个值，框架自动处理切分和通信。多机多卡时用 torchrun 的 –nnodes 参数指定机器数。</p>
+<p>torchrun —nproc_per_node=8 pretrain_gpt.py \<br>  —tensor-model-parallel-size 8 \<br>  —pipeline-model-parallel-size 2 \<br>  —num-layers 32 \<br>  —hidden-size 4096 \<br>  —num-attention-heads 32 \<br>  —seq-length 2048 \<br>  —micro-batch-size 4 \<br>  —global-batch-size 512 \<br>  —train-iters 500000 \<br>  —data-path my_data_text_document</p>
+<p>其中 tensor-model-parallel-size 和 pipeline-model-parallel-size 就是控制 TP 和 PP<br>的，设好这两个值，框架自动处理切分和通信。多机多卡时用 torchrun 的 —nnodes 参数指定机器数。</p>
 <p>实际可以将上述启动命令与配置参数写到启动脚本里，然后直接运行。</p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/" data-id="cuid9Icm9lDsLK6RLSCh4vEW7" data-title="Megatron 与 3D 并行" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/" data-id="cuidnTYOpwNLUCblSMLSWpZCb" data-title="Megatron 与 3D 并行" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -678,25 +650,22 @@
     <div class="e-content article-entry" itemprop="articleBody">
       
         <h1 id="FSDP"><a href="#FSDP" class="headerlink" title="FSDP"></a>FSDP</h1><p>ZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。</p>
-<h2 id="FSDP核心机制"><a href="#FSDP核心机制" class="headerlink" title="FSDP核心机制"></a>FSDP核心机制</h2><p>FSDP &#x3D; Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片与重组机制，它将模型参数、梯度和优化器状态均匀分布在所有 GPU 上。本质是**“用通讯换显存”**。</p>
+<h2 id="FSDP核心机制"><a href="#FSDP核心机制" class="headerlink" title="FSDP核心机制"></a>FSDP核心机制</h2><p>FSDP = Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片与重组机制，它将模型参数、梯度和优化器状态均匀分布在所有 GPU 上。本质是<strong>“用通讯换显存”</strong>。</p>
 <p>FSDP的分片原理：<br>通过 auto_wrap_policy 标记需要分片的层（通常是 Transformer Block），将每层的参数展平后均匀切分到各卡上。未被标记的层同样展平切分。<br>Transformer模型的层结构规整，适合按层做统一的分片处理。</p>
 <p>FSDP的重组原理：<br>先将未被标记的层 All-Gather 汇聚完整，然后逐层 All-Gather标记层的参数进行计算，算完立即丢弃，保证任意时刻只有一层是完整的</p>
-<p>Qwen2.5-8B举例<br>[Embedding] [decoder] … [decoder] [RMSNorm] [LM Head]<br>                32<em>decoder layer<br>分片：(2卡)<br>GPU0：[(Embedding+RMSNorm+LM Head)(1&#x2F;2)] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)]<br>                                                32</em>decoder layer<br>GPU1：[(Embedding+RMSNorm+LM Head)(1&#x2F;2)] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)]<br>                                                32<em>decoder layer<br>重组：<br>首先汇聚未被标记的部分<br>GPU0：[Embedding] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第一层<br>GPU0：[Embedding] [decoder1(完整)] [decoder2(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(完整)] [decoder2(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第二层<br>GPU0：[Embedding] [decoder1(1&#x2F;2)] [decoder2(完整)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1&#x2F;2)] [decoder2(完整)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>。。。<br>汇聚最后一层<br>GPU0：[Embedding] [decoder1(1&#x2F;2)] [decoder2(1&#x2F;2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1&#x2F;2)] [decoder2(1&#x2F;2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32*decoder layer<br>最后恢复成分片状态。</p>
-<p>整体静态参数最高水位：(1&#x2F;N)(P+G+O)</p>
-<p>代码示例：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    sharding_strategy=ShardingStrategy.FULL_SHARD,</span><br><span class="line">    auto_wrap_policy=transformer_auto_wrap_policy,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    device_id=torch.cuda.current_device(),</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">核心就三个参数：</span><br><span class="line">- sharding_strategy：分片策略（FULL_SHARD = ZeRO-3 级别）</span><br><span class="line">- auto_wrap_policy：哪些层做分片</span><br><span class="line">- mixed_precision：混合精度</span><br></pre></td></tr></table></figure>
-
+<p>Qwen2.5-8B举例<br>[Embedding] [decoder] … [decoder] [RMSNorm] [LM Head]<br>                32<em>decoder layer<br>分片：(2卡)<br>GPU0：[(Embedding+RMSNorm+LM Head)(1/2)] [decoder(1/2)] … [decoder(1/2)]<br>                                                32</em>decoder layer<br>GPU1：[(Embedding+RMSNorm+LM Head)(1/2)] [decoder(1/2)] … [decoder(1/2)]<br>                                                32<em>decoder layer<br>重组：<br>首先汇聚未被标记的部分<br>GPU0：[Embedding] [decoder(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第一层<br>GPU0：[Embedding] [decoder1(完整)] [decoder2(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(完整)] [decoder2(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第二层<br>GPU0：[Embedding] [decoder1(1/2)] [decoder2(完整)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1/2)] [decoder2(完整)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>。。。<br>汇聚最后一层<br>GPU0：[Embedding] [decoder1(1/2)] [decoder2(1/2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1/2)] [decoder2(1/2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32*decoder layer<br>最后恢复成分片状态。</p>
+<p>整体静态参数最高水位：(1/N)(P+G+O)</p>
+<p>代码示例：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    sharding_strategy=ShardingStrategy.FULL_SHARD,</span><br><span class="line">    auto_wrap_policy=transformer_auto_wrap_policy,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    device_id=torch.cuda.current_device(),</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">核心就三个参数：</span><br><span class="line">- sharding_strategy：分片策略（FULL_SHARD = ZeRO-3 级别）</span><br><span class="line">- auto_wrap_policy：哪些层做分片</span><br><span class="line">- mixed_precision：混合精度</span><br></pre></td></tr></table></figure></p>
 <p>FSDP与ZeRO-3对比</p>
 <ul>
 <li>FSDP 支持选择性分片，ZeRO-3 全切</li>
 <li>ZeRO-3 有 ZeRO-Infinity（NVMe offload），FSDP 只有 CPU offload</li>
 </ul>
-<h2 id="FSDP优化策略"><a href="#FSDP优化策略" class="headerlink" title="FSDP优化策略"></a>FSDP优化策略</h2><h3 id="CPU-offload"><a href="#CPU-offload" class="headerlink" title="CPU offload"></a>CPU offload</h3><p>问题：当模型较大时，在FSDP分片后，可能仍会出现(1&#x2F;N)(P+G+O)在一张卡上放不下的情况。以 8B 模型 + 双卡 BF16 + AdamW 为例，单卡上 Adam 状态约 32GiB，加上参数和梯度，直接 OOM。</p>
+<h2 id="FSDP优化策略"><a href="#FSDP优化策略" class="headerlink" title="FSDP优化策略"></a>FSDP优化策略</h2><h3 id="CPU-offload"><a href="#CPU-offload" class="headerlink" title="CPU offload"></a>CPU offload</h3><p>问题：当模型较大时，在FSDP分片后，可能仍会出现(1/N)(P+G+O)在一张卡上放不下的情况。以 8B 模型 + 双卡 BF16 + AdamW 为例，单卡上 Adam 状态约 32GiB，加上参数和梯度，直接 OOM。</p>
 <p>解决方法：CPU offload策略。（核心是让O一直存储在CPU侧，O的比重最大，能减轻GPU显存的压力）<br>P：前向阶段：CPU——》GPU（CPU侧复制一份到GPU侧，算完会丢弃），反向阶段：CPU——》GPU（CPU侧复制一份到GPU侧，算完会丢弃）<br>G：反向阶段：在GPU生成。Optimizer step：GPU——》CPU（直接移动）<br>O：一直在CPU侧</p>
 <p>代价：CPU↔GPU 数据搬运有延迟，训练速度会下降</p>
 <p>启用方法：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import CPUOffload</span><br><span class="line"></span><br><span class="line">FSDP(</span><br><span class="line">    model,</span><br><span class="line">    cpu_offload=CPUOffload(offload_params=True),</span><br><span class="line">    ...</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-
 <p>实测数据（8B + 双卡 5090 32G）：</p>
 <p>┌──────────────┬───────────────┬─────────────────────────┐<br>│     配置     │ GPU 峰值显存  │          结果           │<br>├──────────────┼───────────────┼─────────────────────────┤<br>│ 无 Offload   │ ~48GiB（OOM） │ optim.step() 阶段爆显存 │<br>├──────────────┼───────────────┼─────────────────────────┤<br>│ 开启 Offload │ 15.51 GiB     │ 训练正常，50 步稳定     │<br>└──────────────┴───────────────┴─────────────────────────┘</p>
 <h3 id="Activation-Checkpointing"><a href="#Activation-Checkpointing" class="headerlink" title="Activation Checkpointing"></a>Activation Checkpointing</h3><p>问题：当激活值占用较大的场合，即使能存储P+G+O，但仍可能由于A导致OOM。</p>
@@ -705,16 +674,14 @@
 <p>本质:以计算换显存。多花一遍前向计算的时间，省掉大量激活值的显存。</p>
 <p>代码实现：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (</span><br><span class="line">    checkpoint_wrapper, CheckpointImpl, apply_activation_checkpointing</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 在 FSDP 包装之后应用</span><br><span class="line">apply_activation_checkpointing(</span><br><span class="line">    model,</span><br><span class="line">    checkpoint_wrapper_fn=functools.partial(</span><br><span class="line">        checkpoint_wrapper, checkpoint_impl=CheckpointImpl.NO_REENTRANT</span><br><span class="line">    ),</span><br><span class="line">    check_fn=lambda submodule: isinstance(submodule, TransformerBlock)</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-
 <p>实测数据<br>256 层模型的实验：<br>┌─────────┬────────────┬──────────────────────────────────┐<br>│  模式   │ 激活值占用  │               说明               │<br>├─────────┼────────────┼──────────────────────────────────┤<br>│ 不开 AC │ 776.12 MB  │ 保存了所有中间层的激活值           │<br>├─────────┼────────────┼──────────────────────────────────┤<br>│ 开启 AC │ 264.12 MB  │ 只保存每层输入，中间状态全部丢弃    │<br>└─────────┴────────────┴──────────────────────────────────┘<br>激活值减少了约 66%。</p>
 <h3 id="混合精度"><a href="#混合精度" class="headerlink" title="混合精度"></a>混合精度</h3><p>为了加快计算速度，可以使用混合精度的方式来训练。参数在GPU以 BF16 存储（省显存），计算也用 BF16（GPU加速），优化器内部保留 FP32 主副本（用于更新P，保数值稳定）。计算用 BF16（快+省），更新用 FP32（稳），两者各取所长。<br>┌─────────────────┬──────────┬──────────────────────────────┐<br>│                 │   FP32   │       BF16（混合精度）        │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ P               │ 4 bytes  │ 2 bytes                      │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ G               │ 4 bytes  │ 2 bytes                      │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ O（优化器状态）  │ 8 bytes  │ 12 bytes（保留 FP32 主副本）  │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ 每参数总计       │ 16 bytes │ 16 bytes                     │<br>└─────────────────┴──────────┴──────────────────────────────┘<br>虽然整体P+G+O没有变化，但是（1）P 和 G 的显存占用减半，使用CPU offload的情况下，显存只会用到P+G，这时显存占用就变少了。（2）P 和 G 的显存占用减半，A的位数也会减半，那整体显存的占用也会变少。</p>
-<p>代码示例：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    。。。</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>代码示例：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    。。。</span><br><span class="line">)</span><br></pre></td></tr></table></figure></p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuidFOVB57ihTS-hG9YYEagY0" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuidL6gdCQZDdyMGD5a3rtfAH" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -767,62 +734,63 @@
 <h2 id="3-ZeRO-1"><a href="#3-ZeRO-1" class="headerlink" title="3. ZeRO-1"></a>3. ZeRO-1</h2><p>在 Adam 优化器中，<strong>O (优化器状态)</strong> 占比最大（12N，占静态显存的 75%）。ZeRO-1 发现 O 在前向和反向传播中完全不参与计算，仅在“参数更新”那一瞬间被访问。因此，将其均分到各卡上收益最高。</p>
 <p>核心流程（以 8 卡为例）</p>
 <ol>
-<li><strong>前向传播</strong>：水位 &#x3D; $(P + (1&#x2F;8)O) + A$<br> 相比于单卡训练，前向传播过程中，O只占用了1&#x2F;8，对应自己负责的那部分优化器状态。并且当前步骤并未使用到O，所以只存储(1&#x2F;8)O不会对该过程造成影响</li>
-<li><strong>反向传播</strong>：水位 &#x3D; $(P + (1&#x2F;8)O) + A + G$<br>同样当前步骤并未使用到O，所以只存储(1&#x2F;8)O不会对该过程造成影响<br> 除此之外，A在反向传播过程中逐步释放（算完一层释放一层）。</li>
-<li><strong>Reduce-Scatter</strong>：水位 &#x3D; $(P + (1&#x2F;8)O) + (1&#x2F;8)G$<br> 这步是ZeRO-1增加的步骤。<br> 首先ZeRO-1是在DP的基础上进行训练的，所以需要进行Reduce操作，每部分的梯度都需要求平均。<br> 然后由于每张卡仅存储了(1&#x2F;8)O，仅能更新对应的(1&#x2F;8)P，因此每张卡上仅需要对应的(1&#x2F;8)G就能完成对应的更新操作，所以仅需要Reduce-Scatter操作，让每张卡处理对应的(1&#x2F;8)G即可，不需要All-Reduce。</li>
-<li><strong>参数更新</strong>：水位：更新前 $(P + (1&#x2F;8)O) + (1&#x2F;8)G$，更新后 $((1&#x2F;8)P + (1&#x2F;8)O)$<br>由于每张卡只有(1&#x2F;8)O，而切分策略保证了单卡上仅有的O能完成对应(1&#x2F;8)P的更新，同时O也在同步更新。之后每张卡弃掉用不到的(7&#x2F;8)P。<br>同时在算完P后，G也会被释放。</li>
-<li><strong>All-Gather</strong>：水位 &#x3D; $P + (1&#x2F;8)O$<br>这步是ZeRO-1增加的步骤。<br>为了后续快速的前向传播与后向传播计算，需要每张卡拥有完整的P，因此通过All-Gather将每张卡汇聚出完整的P</li>
+<li><strong>前向传播</strong>：水位 = $(P + (1/8)O) + A$<br> 相比于单卡训练，前向传播过程中，O只占用了1/8，对应自己负责的那部分优化器状态。并且当前步骤并未使用到O，所以只存储(1/8)O不会对该过程造成影响</li>
+<li><strong>反向传播</strong>：水位 = $(P + (1/8)O) + A + G$<br>同样当前步骤并未使用到O，所以只存储(1/8)O不会对该过程造成影响<br> 除此之外，A在反向传播过程中逐步释放（算完一层释放一层）。</li>
+<li><strong>Reduce-Scatter</strong>：水位 = $(P + (1/8)O) + (1/8)G$<br> 这步是ZeRO-1增加的步骤。<br> 首先ZeRO-1是在DP的基础上进行训练的，所以需要进行Reduce操作，每部分的梯度都需要求平均。<br> 然后由于每张卡仅存储了(1/8)O，仅能更新对应的(1/8)P，因此每张卡上仅需要对应的(1/8)G就能完成对应的更新操作，所以仅需要Reduce-Scatter操作，让每张卡处理对应的(1/8)G即可，不需要All-Reduce。</li>
+<li><strong>参数更新</strong>：水位：更新前 $(P + (1/8)O) + (1/8)G$，更新后 $((1/8)P + (1/8)O)$<br>由于每张卡只有(1/8)O，而切分策略保证了单卡上仅有的O能完成对应(1/8)P的更新，同时O也在同步更新。之后每张卡弃掉用不到的(7/8)P。<br>同时在算完P后，G也会被释放。</li>
+<li><strong>All-Gather</strong>：水位 = $P + (1/8)O$<br>这步是ZeRO-1增加的步骤。<br>为了后续快速的前向传播与后向传播计算，需要每张卡拥有完整的P，因此通过All-Gather将每张卡汇聚出完整的P</li>
 </ol>
 <p>ZeRO-1 核心流程 (以 8 卡为例，仅展示 GPU 0 视角)</p>
-<p>图例: ■ &#x3D; 持有    □ &#x3D; 空缺&#x2F;已释放</p>
-<p>═══════════════════════════════════════════════════════════<br>阶段1: 前向传播                              [不用 O]<br>═══════════════════════════════════════════════════════════<br>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  A[■■■■]<br>        全量P          1&#x2F;8 O         激活值堆积</p>
-<p>═══════════════════════════════════════════════════════════<br>阶段2: 反向传播                              [不用 O]<br>═══════════════════════════════════════════════════════════<br>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  G[■■■■■■■■]<br>        全量P          1&#x2F;8 O         算出全量局部G<br>                        (一直没用上)    A 逐步释放中</p>
-<p>═══════════════════════════════════════════════════════════<br>阶段3: Reduce-Scatter    ← 8卡互相交换梯度并求平均 →<br>═══════════════════════════════════════════════════════════<br>        交换前: G[■■■■■■■■]  全量局部梯度<br>        交换后: G[■□□□□□□□]  只留自己负责的 1&#x2F;8 全局梯度</p>
+<p>图例: ■ = 持有    □ = 空缺/已释放</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段1: 前向传播                              [不用 O]<br>═══════════════════════════════════════════════════════════<br>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  A[■■■■]<br>        全量P          1/8 O         激活值堆积</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段2: 反向传播                              [不用 O]<br>═══════════════════════════════════════════════════════════<br>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  G[■■■■■■■■]<br>        全量P          1/8 O         算出全量局部G<br>                        (一直没用上)    A 逐步释放中</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段3: Reduce-Scatter    ← 8卡互相交换梯度并求平均 →<br>═══════════════════════════════════════════════════════════<br>        交换前: G[■■■■■■■■]  全量局部梯度<br>        交换后: G[■□□□□□□□]  只留自己负责的 1/8 全局梯度</p>
 <p>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  G[■□□□□□□□]<br>                                ^^^^^^^^^^^^<br>                                各卡取不同位置，凑起来就是完整G<br>GPU0:  P[■■■■■■■■]  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
-<p>═══════════════════════════════════════════════════════════<br>阶段4: 参数更新 (本地计算，无通信)<br>═══════════════════════════════════════════════════════════<br>        Adam: 用 1&#x2F;8 G + 1&#x2F;8 O → 更新 1&#x2F;8 P，O 同步刷新</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段4: 参数更新 (本地计算，无通信)<br>═══════════════════════════════════════════════════════════<br>        Adam: 用 1/8 G + 1/8 O → 更新 1/8 P，O 同步刷新</p>
 <pre><code>    更新前: P[■■■■■■■■]  O[■□□□□□□□]  G[■□□□□□□□]
     更新后: P[■□□□□□□□]  O[■□□□□□□□]  G[□□□□□□□□]
             丢弃7/8 P      (已刷新)      G释放
-</code></pre>
-<p>═══════════════════════════════════════════════════════════<br>阶段5: All-Gather    ← 8卡互相交换更新后的 1&#x2F;8 P →<br>═══════════════════════════════════════════════════════════<br>        交换前: P[■□□□□□□□]  每人只有自己的 1&#x2F;8<br>        交换后: P[■■■■■■■■]  汇聚成全量新 P</p>
-<p>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]<br>        完整新P         1&#x2F;8 O → 回到阶段1，开始下一轮</p>
+</code></pre><p>═══════════════════════════════════════════════════════════<br>阶段5: All-Gather    ← 8卡互相交换更新后的 1/8 P →<br>═══════════════════════════════════════════════════════════<br>        交换前: P[■□□□□□□□]  每人只有自己的 1/8<br>        交换后: P[■■■■■■■■]  汇聚成全量新 P</p>
+<p>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]<br>        完整新P         1/8 O → 回到阶段1，开始下一轮</p>
 <p>多卡视角看 Reduce-Scatter 这一步会更直观：</p>
 <p>Reduce-Scatter: 8卡各持不同分片的 O，所以各取不同位置的 G</p>
 <p>GPU0:  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
-<p>横向拼起来 &#x3D; 完整的 G 和 O，每张卡只做自己的那块更新</p>
-<h2 id="4-ZeRO-2"><a href="#4-ZeRO-2" class="headerlink" title="4. ZeRO-2"></a>4. ZeRO-2</h2><p>即使把优化器状态（O）均匀分布到所有显卡，每张卡依然无法容纳全部模型参数，因此还需要进一步优化显存：ZeRO-2 针对梯度（G）进行了切分。其核心思想是——反向传播计算过程中，每张卡只保留自身负责的 (1&#x2F;8) G 分片，而不是完整保留所有梯度。</p>
-<p>实现方式是：在反向传播进行到每一层时，都会同步执行一次 Reduce-Scatter 操作，把这一层产出的梯度立即切分、分发至各卡，确保每张卡始终只持有属于自己的那部分梯度分片 (1&#x2F;8 G)。显著降低了单卡所需显存，从而支持更大规模的模型训练。</p>
+<p>横向拼起来 = 完整的 G 和 O，每张卡只做自己的那块更新</p>
+<h2 id="4-ZeRO-2"><a href="#4-ZeRO-2" class="headerlink" title="4. ZeRO-2"></a>4. ZeRO-2</h2><p>即使把优化器状态（O）均匀分布到所有显卡，每张卡依然无法容纳全部模型参数，因此还需要进一步优化显存：ZeRO-2 针对梯度（G）进行了切分。其核心思想是——反向传播计算过程中，每张卡只保留自身负责的 (1/8) G 分片，而不是完整保留所有梯度。</p>
+<p>实现方式是：在反向传播进行到每一层时，都会同步执行一次 Reduce-Scatter 操作，把这一层产出的梯度立即切分、分发至各卡，确保每张卡始终只持有属于自己的那部分梯度分片 (1/8 G)。显著降低了单卡所需显存，从而支持更大规模的模型训练。</p>
 <p>类似下图：<br>ZeRO-1<br>GPU0:  P[■■■■■■■■]  G[■■■■■■■■]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[■■■■■■■■]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
 <p>ZeRO-2<br>GPU0:  P[■■■■■■■■]  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
-<p>峰值显存对比（反向传播过程中）：<br>ZeRO-1：$(P + (1&#x2F;8)O) + A + G(全量)$<br>ZeRO-2：$(P + (1&#x2F;8)O) + A + G(1&#x2F;8)$</p>
-<p>通信总量：虽然在每一层计算完后就会进行Reduce-Scatter将参数同步到其他卡上，但是实际传输数据的总量均是(7&#x2F;8)G，然后Reduce的过程在各自卡上，计算很快，时间忽略不计。除此之外，传输过程是异步进行的，属于计算通信重叠，所以实际训练过程并不一定比ZeRO-1慢（ZeRO-2每次通信仍会有额外开销）。</p>
+<p>峰值显存对比（反向传播过程中）：<br>ZeRO-1：$(P + (1/8)O) + A + G(全量)$<br>ZeRO-2：$(P + (1/8)O) + A + G(1/8)$</p>
+<p>通信总量：虽然在每一层计算完后就会进行Reduce-Scatter将参数同步到其他卡上，但是实际传输数据的总量均是(7/8)G，然后Reduce的过程在各自卡上，计算很快，时间忽略不计。除此之外，传输过程是异步进行的，属于计算通信重叠，所以实际训练过程并不一定比ZeRO-1慢（ZeRO-2每次通信仍会有额外开销）。</p>
 <h2 id="5-ZeRO-3"><a href="#5-ZeRO-3" class="headerlink" title="5. ZeRO-3"></a>5. ZeRO-3</h2><p>即使将O，G均分到其他卡上，仍放不下所有参数，甚至对于70B的模型，其模型参数量达到140GB，光模型参数一张卡就已经放不下了。因此需要将P也切分分配到其他卡上。</p>
 <p>在ZeRO-3场景下，由于单卡缺少完整的参数，因此一张卡在正向传播过程中就需要进行通信了。<br>ZeRO-3中对每一层进行了切分，因此在每一层计算时均需要进行一次All-Gather完成该层的计算，然后在计算完后，丢弃同步过来的P。</p>
 <p>核心流程：</p>
 <ol>
-<li><p><strong>前向传播</strong>：水位 &#x3D; $((1&#x2F;8)P + (1&#x2F;8)O) + A$<br>1.1 All-Gather当前层的参数<br>1.2 计算当前层的激活值<br>1.3 丢弃同步过来的层参数<br>1.4 重复上述步骤直到全部层计算完毕</p>
+<li><p><strong>前向传播</strong>：水位 = $((1/8)P + (1/8)O) + A$<br>1.1 All-Gather当前层的参数<br>1.2 计算当前层的激活值<br>1.3 丢弃同步过来的层参数<br>1.4 重复上述步骤直到全部层计算完毕</p>
 </li>
-<li><p><strong>反向传播</strong>：水位 &#x3D; $((1&#x2F;8)P + (1&#x2F;8)O) + A + (1&#x2F;8)G$<br>2.1 All-Gather当前层的参数<br>2.2 计算当前层的梯度<br>2.3 丢弃当前层的激活值与同步过来的层参数<br>2.4 Reduce-Scatter当前层的梯度<br>2.5 重复上述步骤直到全部层计算完毕</p>
+<li><p><strong>反向传播</strong>：水位 = $((1/8)P + (1/8)O) + A + (1/8)G$<br>2.1 All-Gather当前层的参数<br>2.2 计算当前层的梯度<br>2.3 丢弃当前层的激活值与同步过来的层参数<br>2.4 Reduce-Scatter当前层的梯度<br>2.5 重复上述步骤直到全部层计算完毕</p>
 </li>
-<li><p><strong>参数更新</strong>：水位：更新前 $((1&#x2F;8)P + (1&#x2F;8)O) + (1&#x2F;8)G$，更新后 $((1&#x2F;8)P + (1&#x2F;8)O)$<br>与ZeRO-1相同，各卡更新自己的P与O即可，更新完后，丢掉G</p>
+<li><p><strong>参数更新</strong>：水位：更新前 $((1/8)P + (1/8)O) + (1/8)G$，更新后 $((1/8)P + (1/8)O)$<br>与ZeRO-1相同，各卡更新自己的P与O即可，更新完后，丢掉G</p>
 </li>
 </ol>
-<h2 id="6-DeepSpeed"><a href="#6-DeepSpeed" class="headerlink" title="6. DeepSpeed"></a>6. DeepSpeed</h2><h3 id="6-1-DeepSpeed-是什么"><a href="#6-1-DeepSpeed-是什么" class="headerlink" title="6.1 DeepSpeed 是什么"></a>6.1 DeepSpeed 是什么</h3><p>DeepSpeed 是微软开发的<strong>分布式训练框架</strong>，上面讲的 ZeRO-1&#x2F;2&#x2F;3 正是由 DeepSpeed 团队提出的。DeepSpeed 将 ZeRO 论文中的理论工程化，提供了一套易用的训练加速库。</p>
-<p>简单理解：<strong>ZeRO 是论文&#x2F;思想，DeepSpeed 是实现&#x2F;框架</strong>。</p>
-<h3 id="6-2-核心能力"><a href="#6-2-核心能力" class="headerlink" title="6.2 核心能力"></a>6.2 核心能力</h3><table>
+<h2 id="6-DeepSpeed"><a href="#6-DeepSpeed" class="headerlink" title="6. DeepSpeed"></a>6. DeepSpeed</h2><h3 id="6-1-DeepSpeed-是什么"><a href="#6-1-DeepSpeed-是什么" class="headerlink" title="6.1 DeepSpeed 是什么"></a>6.1 DeepSpeed 是什么</h3><p>DeepSpeed 是微软开发的<strong>分布式训练框架</strong>，上面讲的 ZeRO-1/2/3 正是由 DeepSpeed 团队提出的。DeepSpeed 将 ZeRO 论文中的理论工程化，提供了一套易用的训练加速库。</p>
+<p>简单理解：<strong>ZeRO 是论文/思想，DeepSpeed 是实现/框架</strong>。</p>
+<h3 id="6-2-核心能力"><a href="#6-2-核心能力" class="headerlink" title="6.2 核心能力"></a>6.2 核心能力</h3><div class="table-container">
+<table>
 <thead>
 <tr>
 <th>能力</th>
 <th>说明</th>
 </tr>
 </thead>
-<tbody><tr>
-<td>ZeRO-1&#x2F;2&#x2F;3</td>
+<tbody>
+<tr>
+<td>ZeRO-1/2/3</td>
 <td>上面已详细讲述，核心显存优化手段</td>
 </tr>
 <tr>
 <td>ZeRO-Infinity</td>
-<td>将O&#x2F;G甚至P卸载到CPU内存或NVMe磁盘，进一步突破显存瓶颈</td>
+<td>将O/G甚至P卸载到CPU内存或NVMe磁盘，进一步突破显存瓶颈</td>
 </tr>
 <tr>
 <td>3D并行</td>
@@ -830,24 +798,26 @@
 </tr>
 <tr>
 <td>混合精度训练</td>
-<td>FP16&#x2F;BF16 + Loss Scaling，减少显存占用并加速计算</td>
+<td>FP16/BF16 + Loss Scaling，减少显存占用并加速计算</td>
 </tr>
 <tr>
 <td>梯度累积</td>
 <td>模拟大batch size，适合单卡显存不足以一次处理大批次数据的场景</td>
 </tr>
-</tbody></table>
-<h3 id="6-3-ZeRO-Infinity"><a href="#6-3-ZeRO-Infinity" class="headerlink" title="6.3 ZeRO-Infinity"></a>6.3 ZeRO-Infinity</h3><p>ZeRO-1&#x2F;2&#x2F;3 已经将显存分摊到多张GPU上，但当模型足够大（如 175B+），即使多卡分摊仍然放不下。ZeRO-Infinity 的思路是<strong>把不急需的数据暂时搬到更便宜但更慢的存储上</strong>：</p>
+</tbody>
+</table>
+</div>
+<h3 id="6-3-ZeRO-Infinity"><a href="#6-3-ZeRO-Infinity" class="headerlink" title="6.3 ZeRO-Infinity"></a>6.3 ZeRO-Infinity</h3><p>ZeRO-1/2/3 已经将显存分摊到多张GPU上，但当模型足够大（如 175B+），即使多卡分摊仍然放不下。ZeRO-Infinity 的思路是<strong>把不急需的数据暂时搬到更便宜但更慢的存储上</strong>：</p>
 <ul>
 <li><strong>优化器状态</strong> → 卸载到 CPU 内存（速度较快）</li>
-<li><strong>参数&#x2F;梯度</strong> → 必要时卸载到 NVMe 磁盘（速度较慢，但容量大）</li>
+<li><strong>参数/梯度</strong> → 必要时卸载到 NVMe 磁盘（速度较慢，但容量大）</li>
 </ul>
-<p>代价是训练速度会下降（CPU&#x2F;NVMe 与 GPU 之间的数据搬运有延迟），但好处是<strong>用时间换空间</strong>，使得在有限GPU资源下训练超大模型成为可能。</p>
+<p>代价是训练速度会下降（CPU/NVMe 与 GPU 之间的数据搬运有延迟），但好处是<strong>用时间换空间</strong>，使得在有限GPU资源下训练超大模型成为可能。</p>
 <h3 id="6-4-DeepSpeed-配置简介"><a href="#6-4-DeepSpeed-配置简介" class="headerlink" title="6.4 DeepSpeed 配置简介"></a>6.4 DeepSpeed 配置简介</h3><p>DeepSpeed 通过一个 <code>ds_config.json</code> 文件控制训练行为，核心配置项：</p>
 <figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;train_batch_size&quot;</span><span class="punctuation">:</span> <span class="number">128</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;gradient_accumulation_steps&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;optimizer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;Adam&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;params&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;lr&quot;</span><span class="punctuation">:</span> <span class="number">1e-4</span> <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;zero_optimization&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;stage&quot;</span><span class="punctuation">:</span> <span class="number">2</span><span class="punctuation">,</span>                  <span class="comment">// 1/2/3 对应 ZeRO-1/2/3</span></span><br><span class="line">    <span class="attr">&quot;offload_optimizer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;device&quot;</span><span class="punctuation">:</span> <span class="string">&quot;cpu&quot;</span>            <span class="comment">// ZeRO-Infinity: 将优化器状态卸载到CPU</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;offload_param&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;device&quot;</span><span class="punctuation">:</span> <span class="string">&quot;nvme&quot;</span>           <span class="comment">// ZeRO-Infinity: 将参数卸载到NVMe</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;bf16&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span> <span class="punctuation">&#125;</span>    <span class="comment">// 混合精度</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
-
-<p>关键配置项就一个：<code>zero_optimization.stage</code>，设为 1&#x2F;2&#x2F;3 对应使用 ZeRO-1&#x2F;2&#x2F;3。配合 <code>offload_*</code> 即可开启 ZeRO-Infinity。</p>
-<h3 id="6-5-ZeRO-1-2-3-总结对比"><a href="#6-5-ZeRO-1-2-3-总结对比" class="headerlink" title="6.5 ZeRO-1&#x2F;2&#x2F;3 总结对比"></a>6.5 ZeRO-1&#x2F;2&#x2F;3 总结对比</h3><table>
+<p>关键配置项就一个：<code>zero_optimization.stage</code>，设为 1/2/3 对应使用 ZeRO-1/2/3。配合 <code>offload_*</code> 即可开启 ZeRO-Infinity。</p>
+<h3 id="6-5-ZeRO-1-2-3-总结对比"><a href="#6-5-ZeRO-1-2-3-总结对比" class="headerlink" title="6.5 ZeRO-1/2/3 总结对比"></a>6.5 ZeRO-1/2/3 总结对比</h3><div class="table-container">
+<table>
 <thead>
 <tr>
 <th></th>
@@ -856,7 +826,8 @@
 <th>ZeRO-3</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>切分对象</td>
 <td>O</td>
 <td>O + G</td>
@@ -864,9 +835,9 @@
 </tr>
 <tr>
 <td>单卡静态显存</td>
-<td>$P + (1&#x2F;N)O$</td>
-<td>$P + (1&#x2F;N)(O+G)$</td>
-<td>$(1&#x2F;N)(P+O+G)$</td>
+<td>$P + (1/N)O$</td>
+<td>$P + (1/N)(O+G)$</td>
+<td>$(1/N)(P+O+G)$</td>
 </tr>
 <tr>
 <td>通信开销</td>
@@ -886,31 +857,29 @@
 <td>需要更大batch的场景</td>
 <td>模型极大，单卡放不下P的场景</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
+</div>
 <p>选型原则：<strong>能用低stage就不用高stage</strong>，通信开销随stage递增，速度随stage递减。</p>
 <h3 id="6-6-使用示例"><a href="#6-6-使用示例" class="headerlink" title="6.6 使用示例"></a>6.6 使用示例</h3><p>一个最简的 DeepSpeed 训练流程只需要 <strong>三步</strong>：写模型、写配置、启动。</p>
 <h4 id="第一步：训练脚本-train-py"><a href="#第一步：训练脚本-train-py" class="headerlink" title="第一步：训练脚本 train.py"></a>第一步：训练脚本 <code>train.py</code></h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> deepspeed</span><br><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn</span><br><span class="line"><span class="keyword">from</span> torch.utils.data <span class="keyword">import</span> DataLoader, TensorDataset</span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. 定义模型（以简单MLP为例）</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">SimpleModel</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, hidden_dim=<span class="number">1024</span></span>):</span><br><span class="line">        <span class="built_in">super</span>().__init__()</span><br><span class="line">        <span class="variable language_">self</span>.net = nn.Sequential(</span><br><span class="line">            nn.Linear(hidden_dim, hidden_dim),</span><br><span class="line">            nn.ReLU(),</span><br><span class="line">            nn.Linear(hidden_dim, hidden_dim),</span><br><span class="line">            nn.ReLU(),</span><br><span class="line">            nn.Linear(hidden_dim, <span class="number">1</span>),</span><br><span class="line">        )</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">        <span class="keyword">return</span> <span class="variable language_">self</span>.net(x).squeeze()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 构造模型、数据、损失函数</span></span><br><span class="line">model = SimpleModel()</span><br><span class="line">dataset = TensorDataset(torch.randn(<span class="number">10000</span>, <span class="number">1024</span>), torch.randn(<span class="number">10000</span>))</span><br><span class="line">loader = DataLoader(dataset, batch_size=<span class="number">32</span>)</span><br><span class="line"></span><br><span class="line">criterion = nn.MSELoss()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. DeepSpeed 初始化（替代原来的 optimizer = ... ）</span></span><br><span class="line"><span class="comment">#    engine 就是 deepspeed 管理后的模型，包含了优化器、调度器等</span></span><br><span class="line">model_engine, optimizer, _, _ = deepspeed.initialize(</span><br><span class="line">    model=model,</span><br><span class="line">    model_parameters=model.parameters(),</span><br><span class="line">    config=<span class="string">&quot;ds_config.json&quot;</span>,       <span class="comment"># 配置文件路径</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 训练循环（和普通PyTorch几乎一样，区别只在 loss.backward → engine.backward）</span></span><br><span class="line">model_engine.train()</span><br><span class="line"><span class="keyword">for</span> epoch <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">3</span>):</span><br><span class="line">    <span class="keyword">for</span> batch_x, batch_y <span class="keyword">in</span> loader:</span><br><span class="line">        batch_x, batch_y = batch_x.to(model_engine.device), batch_y.to(model_engine.device)</span><br><span class="line"></span><br><span class="line">        outputs = model_engine(batch_x)</span><br><span class="line">        loss = criterion(outputs, batch_y)</span><br><span class="line"></span><br><span class="line">        model_engine.backward(loss)        <span class="comment"># 替代 loss.backward()</span></span><br><span class="line">        model_engine.step()                <span class="comment"># 替代 optimizer.step()</span></span><br></pre></td></tr></table></figure>
-
 <p>对比普通 PyTorch 训练，改动只有两处：</p>
 <ul>
 <li>用 <code>deepspeed.initialize()</code> 替代手动创建 optimizer</li>
 <li>用 <code>model_engine.backward()</code> + <code>model_engine.step()</code> 替代 <code>loss.backward()</code> + <code>optimizer.step()</code></li>
 </ul>
 <h4 id="第二步：配置文件-ds-config-json"><a href="#第二步：配置文件-ds-config-json" class="headerlink" title="第二步：配置文件 ds_config.json"></a>第二步：配置文件 <code>ds_config.json</code></h4><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;train_batch_size&quot;</span><span class="punctuation">:</span> <span class="number">256</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;gradient_accumulation_steps&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;zero_optimization&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;stage&quot;</span><span class="punctuation">:</span> <span class="number">2</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;bf16&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="string">&quot;auto&quot;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
-
 <p>就一个关键配置：<code>stage: 2</code> 表示使用 ZeRO-2。想切 ZeRO-3 改成 <code>3</code> 即可。</p>
 <h4 id="第三步：启动命令"><a href="#第三步：启动命令" class="headerlink" title="第三步：启动命令"></a>第三步：启动命令</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 单机多卡（最常见）</span></span><br><span class="line">deepspeed train.py --deepspeed_config ds_config.json</span><br><span class="line"></span><br><span class="line"><span class="comment"># 多机多卡</span></span><br><span class="line">deepspeed --num_gpus=8 train.py --deepspeed_config ds_config.json</span><br><span class="line"></span><br><span class="line"><span class="comment"># 等价于 torchrun 的用法</span></span><br><span class="line">deepspeed --num_nodes=2 --num_gpus_per_node=8 train.py --deepspeed_config ds_config.json</span><br></pre></td></tr></table></figure>
-
 <p><code>deepspeed</code> 命令会自动处理多进程启动、GPU分配、通信组初始化等，替代原来的 <code>torchrun</code> 或 <code>python -m torch.distributed.launch</code>。</p>
 <h4 id="与-Hugging-Face-集成（实战更常用）"><a href="#与-Hugging-Face-集成（实战更常用）" class="headerlink" title="与 Hugging Face 集成（实战更常用）"></a>与 Hugging Face 集成（实战更常用）</h4><p>实际工作中更常见的是用 Hugging Face Transformers + DeepSpeed，只需要在 <code>TrainingArguments</code> 中加一行：</p>
 <figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> transformers <span class="keyword">import</span> TrainingArguments, Trainer</span><br><span class="line"></span><br><span class="line">training_args = TrainingArguments(</span><br><span class="line">    output_dir=<span class="string">&quot;./output&quot;</span>,</span><br><span class="line">    per_device_train_batch_size=<span class="number">16</span>,</span><br><span class="line">    <span class="comment"># 只需加这一行，指向配置文件即可</span></span><br><span class="line">    deepspeed=<span class="string">&quot;ds_config.json&quot;</span>,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">trainer = Trainer(</span><br><span class="line">    model=model,</span><br><span class="line">    args=training_args,</span><br><span class="line">    train_dataset=train_dataset,</span><br><span class="line">)</span><br><span class="line">trainer.train()</span><br></pre></td></tr></table></figure>
-
 <p>Hugging Face 内部会自动调用 <code>deepspeed.initialize()</code>，不需要手动管理 engine。</p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" data-id="cuid1h7Mfvg3tGs2VXNK-KBDn" data-title="ZeRO-123和Deepspeed" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" data-id="cuid81c2zFlWbeYO6n1RoWXi0" data-title="ZeRO-123和Deepspeed" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -964,24 +933,24 @@
 <li><strong>获取方法</strong>：<code>nvidia-smi</code>。</li>
 <li><strong>实战意义</strong>：<ul>
 <li><strong>显存占满不代表计算满</strong>：PyTorch 往往会预分配显存。</li>
-<li><strong>OOM 预警</strong>：若显存触顶而 GPU 利用率极低，说明静态显存占用过大，需考虑切分模型（ZeRO&#x2F;FSDP）。</li>
+<li><strong>OOM 预警</strong>：若显存触顶而 GPU 利用率极低，说明静态显存占用过大，需考虑切分模型（ZeRO/FSDP）。</li>
 </ul>
 </li>
 </ul>
 <h3 id="1-4-实际观测中的辅助指标"><a href="#1-4-实际观测中的辅助指标" class="headerlink" title="1.4 实际观测中的辅助指标"></a>1.4 实际观测中的辅助指标</h3><p>在生产环境中，除了上述核心指标，我们还会关注：</p>
 <ul>
 <li><strong>Step Time (步时)</strong>：衡量训练的稳定性，关注其波动情况。</li>
-<li><strong>Throughput (吞吐量)</strong>：衡量整体进度（Tokens&#x2F;sec）。</li>
+<li><strong>Throughput (吞吐量)</strong>：衡量整体进度（Tokens/sec）。</li>
 <li><strong>通信占比</strong>：通过 Profiler 观察 NCCL 通信耗时占总步时的比例，判断是否需要进一步做 Overlap 优化。</li>
-<li><strong>CPU&#x2F;内存</strong>：判断是否存在数据预处理（DataLoader）瓶颈。</li>
+<li><strong>CPU/内存</strong>：判断是否存在数据预处理（DataLoader）瓶颈。</li>
 </ul>
 <h2 id="2-分布式训练通信基础"><a href="#2-分布式训练通信基础" class="headerlink" title="2. 分布式训练通信基础"></a>2. 分布式训练通信基础</h2><h3 id="2-1-为什么需要通信？"><a href="#2-1-为什么需要通信？" class="headerlink" title="2.1 为什么需要通信？"></a>2.1 为什么需要通信？</h3><p>在分布式训练中，模型的状态（参数、梯度、优化器状态）或计算的中间结果被分布在不同的显卡上。为了保证训练的正确性和一致性，各卡之间必须进行数据交换：</p>
 <ul>
 <li><strong>一致性要求</strong>：在数据并行中，各卡必须同步梯度，以保证更新后的模型参数完全一致。</li>
-<li><strong>计算依赖</strong>：在模型并行（TP&#x2F;PP）中，下一阶段的计算依赖于前一阶段在其他卡上的输出。</li>
+<li><strong>计算依赖</strong>：在模型并行（TP/PP）中，下一阶段的计算依赖于前一阶段在其他卡上的输出。</li>
 </ul>
 <h3 id="2-2-不同并行策略下的通信场景"><a href="#2-2-不同并行策略下的通信场景" class="headerlink" title="2.2 不同并行策略下的通信场景"></a>2.2 不同并行策略下的通信场景</h3><ol>
-<li><p><strong>数据并行 (DP&#x2F;DDP)</strong>：</p>
+<li><p><strong>数据并行 (DP/DDP)</strong>：</p>
 <ul>
 <li><strong>内容</strong>：梯度 (Gradients)。</li>
 <li><strong>时机</strong>：反向传播结束时，通过 <strong>All-Reduce</strong> 同步。</li>
@@ -996,10 +965,10 @@
 <li><p><strong>流水并行 (PP)</strong>：</p>
 <ul>
 <li><strong>内容</strong>：层与层之间的中间输出。</li>
-<li><strong>时机</strong>：发生在 <strong>不同机器&#x2F;阶段的交接处</strong>，数据像接力棒一样传递。</li>
+<li><strong>时机</strong>：发生在 <strong>不同机器/阶段的交接处</strong>，数据像接力棒一样传递。</li>
 </ul>
 </li>
-<li><p><strong>ZeRO&#x2F;FSDP</strong>：</p>
+<li><p><strong>ZeRO/FSDP</strong>：</p>
 <ul>
 <li><strong>内容</strong>：模型参数 (P) 和 梯度 (G)。</li>
 <li><strong>时机</strong>：计算前 <strong>All-Gather</strong> 收集参数，计算后 <strong>Reduce-Scatter</strong> 同步梯度。</li>
@@ -1007,7 +976,7 @@
 </li>
 </ol>
 <h3 id="2-3-通信原语简述"><a href="#2-3-通信原语简述" class="headerlink" title="2.3 通信原语简述"></a>2.3 通信原语简述</h3><p>在分布式环境下，数据在不同节点间的流动主要依靠以下几种标准动作（原语）：</p>
-<h4 id="1-基础动作（一对多-多对一）"><a href="#1-基础动作（一对多-多对一）" class="headerlink" title="1. 基础动作（一对多 &#x2F; 多对一）"></a>1. 基础动作（一对多 &#x2F; 多对一）</h4><ul>
+<h4 id="1-基础动作（一对多-多对一）"><a href="#1-基础动作（一对多-多对一）" class="headerlink" title="1. 基础动作（一对多 / 多对一）"></a>1. 基础动作（一对多 / 多对一）</h4><ul>
 <li><strong>Broadcast (广播)</strong>：一个节点将数据发给所有人。<ul>
 <li><code>[A] -&gt; [A, A, A, A]</code></li>
 </ul>
@@ -1032,7 +1001,7 @@
 </ul>
 </li>
 <li><strong>Reduce-Scatter</strong>：每个人都贡献一小块，先聚合计算，再把结果拆开，每人拿回一小块。<ul>
-<li><em>场景</em>：ZeRO-2&#x2F;FSDP 反向传播后同步梯度并分摊存储。</li>
+<li><em>场景</em>：ZeRO-2/FSDP 反向传播后同步梯度并分摊存储。</li>
 <li><code>[A], [B], [C], [D] -&gt; [sum_A], [sum_B], [sum_C], [sum_D]</code></li>
 </ul>
 </li>
@@ -1061,12 +1030,12 @@
 <h3 id="2-5-物理通信链路与分级同步"><a href="#2-5-物理通信链路与分级同步" class="headerlink" title="2.5 物理通信链路与分级同步"></a>2.5 物理通信链路与分级同步</h3><p>在真实集群中，通信效率受限于底层的物理连接。我们需要区分“节点内”和“节点间”两种链路：</p>
 <h4 id="1-节点内通信-Intra-node"><a href="#1-节点内通信-Intra-node" class="headerlink" title="1. 节点内通信 (Intra-node)"></a>1. 节点内通信 (Intra-node)</h4><ul>
 <li><strong>物理链路</strong>：<strong>NVLink</strong> (NVIDIA) 或 <strong>HCCS</strong> (华为昇腾)。</li>
-<li><strong>特点</strong>：带宽极高（如 H100 的 NVLink 可达 900 GB&#x2F;s），延迟极低。</li>
+<li><strong>特点</strong>：带宽极高（如 H100 的 NVLink 可达 900 GB/s），延迟极低。</li>
 <li><strong>策略</strong>：尽量在节点内完成高频的通信动作（如 TP 的同步）。</li>
 </ul>
 <h4 id="2-跨节点通信-Inter-node"><a href="#2-跨节点通信-Inter-node" class="headerlink" title="2. 跨节点通信 (Inter-node)"></a>2. 跨节点通信 (Inter-node)</h4><ul>
-<li><strong>物理链路</strong>：<strong>RDMA (RoCE &#x2F; InfiniBand)</strong>。</li>
-<li><strong>特点</strong>：带宽远低于节点内（如 400 Gbps，约 50 GB&#x2F;s），但比普通以太网快得多。</li>
+<li><strong>物理链路</strong>：<strong>RDMA (RoCE / InfiniBand)</strong>。</li>
+<li><strong>特点</strong>：带宽远低于节点内（如 400 Gbps，约 50 GB/s），但比普通以太网快得多。</li>
 <li><strong>瓶颈</strong>：跨机通信是分布式训练的主要性能瓶颈。</li>
 </ul>
 <h4 id="3-应对方案：分级同步-Hierarchical-Sync"><a href="#3-应对方案：分级同步-Hierarchical-Sync" class="headerlink" title="3. 应对方案：分级同步 (Hierarchical Sync)"></a>3. 应对方案：分级同步 (Hierarchical Sync)</h4><p>为了平衡带宽差异，现代通信库（如 NCCL）通常采用分级策略：</p>
@@ -1088,7 +1057,7 @@
 <li><strong>你的思路</strong>：多跑几次迭代再汇聚。</li>
 <li><strong>专业术语</strong>：<strong>梯度累积 (Gradient Accumulation)</strong>。</li>
 <li><strong>手段</strong>：该部分手段较多：（1）设置 <code>accumulation_steps=N</code>，每跑 N 个 Batch 才进行一次 All-Reduce 同步。（2）通信合并，PyTorch DDP 默认会把多层梯度攒成一个 bucket一起传</li>
-<li><strong>效果</strong>：将通信开销分摊到多个计算步中，显著提高计算&#x2F;通信比。</li>
+<li><strong>效果</strong>：将通信开销分摊到多个计算步中，显著提高计算/通信比。</li>
 </ul>
 <h3 id="3-3-通信掩盖-Communication-Overlap"><a href="#3-3-通信掩盖-Communication-Overlap" class="headerlink" title="3.3 通信掩盖 (Communication Overlap)"></a>3.3 通信掩盖 (Communication Overlap)</h3><ul>
 <li><strong>你的思路</strong>：计算的同时提前传后续内容。</li>
@@ -1110,7 +1079,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" data-id="cuidFya7eKG2yBoCqOPbGQn-w" data-title="分布式训练优化策略与评估指标" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" data-id="cuidZJvdIRNfKK5se7heXPJ32" data-title="分布式训练优化策略与评估指标" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1152,23 +1121,23 @@
 <h2 id="1-大模型尺寸参数"><a href="#1-大模型尺寸参数" class="headerlink" title="1. 大模型尺寸参数"></a>1. 大模型尺寸参数</h2><h3 id="1-1-基础单位说明"><a href="#1-1-基础单位说明" class="headerlink" title="1.1 基础单位说明"></a>1.1 基础单位说明</h3><ul>
 <li><strong>7B (Billion)</strong>：70 亿个模型参数量。</li>
 <li><strong>参数量与显存的关系</strong>：在 BF16 精度下，1B 参数约占用 <strong>2 GB</strong> 显存（仅参数本身）。</li>
-<li><strong>常见量级</strong>：7B&#x2F;8B（入门级）、14B&#x2F;32B（中型）、70B（大型）、175B（GPT-3 等级）。</li>
+<li><strong>常见量级</strong>：7B/8B（入门级）、14B/32B（中型）、70B（大型）、175B（GPT-3 等级）。</li>
 </ul>
 <h3 id="1-2-常用的大模型"><a href="#1-2-常用的大模型" class="headerlink" title="1.2 常用的大模型"></a>1.2 常用的大模型</h3><ol>
 <li><strong>LLaMA 系列 (Meta)</strong>：<ul>
-<li><strong>LLaMA-2-7B &#x2F; 13B &#x2F; 70B</strong></li>
-<li><strong>LLaMA-3-8B &#x2F; 70B</strong>（当前最火的开源标杆，很多优化都围绕它做）。</li>
+<li><strong>LLaMA-2-7B / 13B / 70B</strong></li>
+<li><strong>LLaMA-3-8B / 70B</strong>（当前最火的开源标杆，很多优化都围绕它做）。</li>
 </ul>
 </li>
 <li><strong>Qwen 系列 (阿里通义千问)</strong>：<ul>
-<li><strong>Qwen-7B &#x2F; 14B &#x2F; 32B &#x2F; 72B</strong>（国产模型标杆，32B 是平衡性能与显存的典型）。</li>
+<li><strong>Qwen-7B / 14B / 32B / 72B</strong>（国产模型标杆，32B 是平衡性能与显存的典型）。</li>
 </ul>
 </li>
 <li><strong>DeepSeek 系列 (深度求索)</strong>：<ul>
-<li><strong>DeepSeek-V2 &#x2F; V3</strong>（以 MoE 架构著称）。</li>
+<li><strong>DeepSeek-V2 / V3</strong>（以 MoE 架构著称）。</li>
 </ul>
 </li>
-<li><strong>Mistral &#x2F; Mixtral (Mistral AI)</strong>：<ul>
+<li><strong>Mistral / Mixtral (Mistral AI)</strong>：<ul>
 <li><strong>Mistral-7B</strong></li>
 <li><strong>Mixtral-8x7B</strong>（MoE 架构的先驱）。</li>
 </ul>
@@ -1177,84 +1146,92 @@
 <h3 id="1-3-训练时的显存账单"><a href="#1-3-训练时的显存账单" class="headerlink" title="1.3 训练时的显存账单"></a>1.3 训练时的显存账单</h3><p>根据第一章的分析，训练过程中的显存占用由 <strong>P（参数）+ G（梯度）+ O（优化器状态）+ A（激活值）</strong> 构成。</p>
 <h4 id="1-3-1-静态显存占用-P-G-O"><a href="#1-3-1-静态显存占用-P-G-O" class="headerlink" title="1.3.1 静态显存占用 (P + G + O)"></a>1.3.1 静态显存占用 (P + G + O)</h4><p>在主流的 <strong>Adam 混合精度训练</strong> 场景下，静态显存占用约为参数量 N 的 <strong>16 倍</strong>：</p>
 <ul>
-<li><strong>公式</strong>：P(2N) + G(2N) + O(12N) &#x3D; 16N 字节。</li>
-<li><strong>32B 模型口算</strong>：32B * 16 &#x3D; 512 GB。</li>
-<li><strong>8B 模型口算</strong>：8B * 16 &#x3D; 128 GB。</li>
+<li><strong>公式</strong>：P(2N) + G(2N) + O(12N) = 16N 字节。</li>
+<li><strong>32B 模型口算</strong>：32B * 16 = 512 GB。</li>
+<li><strong>8B 模型口算</strong>：8B * 16 = 128 GB。</li>
 </ul>
 <h4 id="1-3-2-动态显存占用-A"><a href="#1-3-2-动态显存占用-A" class="headerlink" title="1.3.2 动态显存占用 (A)"></a>1.3.2 动态显存占用 (A)</h4><p>动态显存与模型结构关联较大，且激活值难以精确计算。<br>比如，在MLP模型场景中，A的占用较少，可以不做重点讨论， 而对于 Transformer 场景，A 的占用却不能忽视，其中 Attention 的分数矩阵与序列长度呈平方增长</p>
-<p>以 7B 模型（$d&#x3D;4096$，$h&#x3D;32$，$4d&#x3D;11008$，32 层），$B&#x3D;1$，BF16 为例：</p>
+<p>以 7B 模型（$d=4096$，$h=32$，$4d=11008$，32 层），$B=1$，BF16 为例：</p>
+<div class="table-container">
 <table>
 <thead>
 <tr>
-<th align="left">场景</th>
-<th align="left">序列长度</th>
-<th align="left">激活值估算</th>
+<th style="text-align:left">场景</th>
+<th style="text-align:left">序列长度</th>
+<th style="text-align:left">激活值估算</th>
 </tr>
 </thead>
-<tbody><tr>
-<td align="left">7B, B&#x3D;1, S&#x3D;2048</td>
-<td align="left">2K</td>
-<td align="left">~12-15 GB</td>
+<tbody>
+<tr>
+<td style="text-align:left">7B, B=1, S=2048</td>
+<td style="text-align:left">2K</td>
+<td style="text-align:left">~12-15 GB</td>
 </tr>
 <tr>
-<td align="left">7B, B&#x3D;1, S&#x3D;4096</td>
-<td align="left">4K</td>
-<td align="left">~35-40 GB</td>
+<td style="text-align:left">7B, B=1, S=4096</td>
+<td style="text-align:left">4K</td>
+<td style="text-align:left">~35-40 GB</td>
 </tr>
 <tr>
-<td align="left">7B, B&#x3D;1, S&#x3D;8192</td>
-<td align="left">8K</td>
-<td align="left">~100+ GB</td>
+<td style="text-align:left">7B, B=1, S=8192</td>
+<td style="text-align:left">8K</td>
+<td style="text-align:left">~100+ GB</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
+</div>
 <ul>
 <li><strong>Infra 视角</strong>：即便显存能装下 512 GB 的静态部分，如果剩余显存不足以容纳 A，依然会触发 OOM。</li>
 </ul>
 <h4 id="1-3-3-结论：显存峰值"><a href="#1-3-3-结论：显存峰值" class="headerlink" title="1.3.3 结论：显存峰值"></a>1.3.3 结论：显存峰值</h4><ul>
 <li><strong>峰值时刻</strong>：反向传播起始瞬间。</li>
-<li><strong>峰值公式</strong>：Peak Memory &#x3D; 16N + A。</li>
-<li><strong>核心矛盾</strong>：对于 32B 模型，单卡 80 GB 显存甚至连其 1&#x2F;6 的静态数据都装不下，这是分布式训练的根本动机。</li>
+<li><strong>峰值公式</strong>：Peak Memory = 16N + A。</li>
+<li><strong>核心矛盾</strong>：对于 32B 模型，单卡 80 GB 显存甚至连其 1/6 的静态数据都装不下，这是分布式训练的根本动机。</li>
 </ul>
-<h2 id="2-常见显卡类型"><a href="#2-常见显卡类型" class="headerlink" title="2. 常见显卡类型"></a>2. 常见显卡类型</h2><table>
+<h2 id="2-常见显卡类型"><a href="#2-常见显卡类型" class="headerlink" title="2. 常见显卡类型"></a>2. 常见显卡类型</h2><div class="table-container">
+<table>
 <thead>
 <tr>
-<th align="left">显卡型号</th>
-<th align="left">显存容量</th>
-<th align="left">算力架构</th>
-<th align="left">备注</th>
+<th style="text-align:left">显卡型号</th>
+<th style="text-align:left">显存容量</th>
+<th style="text-align:left">算力架构</th>
+<th style="text-align:left">备注</th>
 </tr>
 </thead>
-<tbody><tr>
-<td align="left"><strong>NVIDIA H100</strong></td>
-<td align="left">80 GB</td>
-<td align="left">Hopper</td>
-<td align="left">当前大模型训练的最强主力</td>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>NVIDIA H100</strong></td>
+<td style="text-align:left">80 GB</td>
+<td style="text-align:left">Hopper</td>
+<td style="text-align:left">当前大模型训练的最强主力</td>
 </tr>
 <tr>
-<td align="left"><strong>NVIDIA A100</strong></td>
-<td align="left">40 GB &#x2F; 80 GB</td>
-<td align="left">Ampere</td>
-<td align="left">曾经的标杆，目前仍广泛使用</td>
+<td style="text-align:left"><strong>NVIDIA A100</strong></td>
+<td style="text-align:left">40 GB / 80 GB</td>
+<td style="text-align:left">Ampere</td>
+<td style="text-align:left">曾经的标杆，目前仍广泛使用</td>
 </tr>
 <tr>
-<td align="left"><strong>NVIDIA V100</strong></td>
-<td align="left">16 GB &#x2F; 32 GB</td>
-<td align="left">Volta</td>
-<td align="left">较老机型，单卡几乎跑不动 7B</td>
+<td style="text-align:left"><strong>NVIDIA V100</strong></td>
+<td style="text-align:left">16 GB / 32 GB</td>
+<td style="text-align:left">Volta</td>
+<td style="text-align:left">较老机型，单卡几乎跑不动 7B</td>
 </tr>
 <tr>
-<td align="left"><strong>RTX 4090</strong></td>
-<td align="left">24 GB</td>
-<td align="left">Ada Lovelace</td>
-<td align="left">消费级旗舰，常用于单卡微调或实验</td>
+<td style="text-align:left"><strong>RTX 4090</strong></td>
+<td style="text-align:left">24 GB</td>
+<td style="text-align:left">Ada Lovelace</td>
+<td style="text-align:left">消费级旗舰，常用于单卡微调或实验</td>
 </tr>
 <tr>
-<td align="left"><strong>昇腾 910B</strong></td>
-<td align="left">64 GB</td>
-<td align="left">DaVinci</td>
-<td align="left">国产算力标杆，显存介于 A100 40G 与 80G 之间</td>
+<td style="text-align:left"><strong>昇腾 910B</strong></td>
+<td style="text-align:left">64 GB</td>
+<td style="text-align:left">DaVinci</td>
+<td style="text-align:left">国产算力标杆，显存介于 A100 40G 与 80G 之间</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
+</div>
 <h2 id="3-单卡限制与多卡需求"><a href="#3-单卡限制与多卡需求" class="headerlink" title="3. 单卡限制与多卡需求"></a>3. 单卡限制与多卡需求</h2><p>通过对比模型账单与硬件规格，可以得到下面的结论：</p>
 <h3 id="3-1-单卡场景"><a href="#3-1-单卡场景" class="headerlink" title="3.1 单卡场景"></a>3.1 单卡场景</h3><ul>
 <li>训练一个 32B 模型需要 512 GB 静态显存。</li>
@@ -1262,12 +1239,12 @@
 <li><strong>直观结论</strong>：单张显卡连模型参数都存不下，更别提运行了。</li>
 </ul>
 <h3 id="3-2-多卡场景"><a href="#3-2-多卡场景" class="headerlink" title="3.2 多卡场景"></a>3.2 多卡场景</h3><ul>
-<li>目前单机可以安装8张显卡。如果我们有一台 8 卡 H100机器（8 * 80 GB &#x3D; 640 GB），总显存量是大于 512 GB 的。</li>
+<li>目前单机可以安装8张显卡。如果我们有一台 8 卡 H100机器（8 * 80 GB = 640 GB），总显存量是大于 512 GB 的。</li>
 <li><strong>直观结论</strong>：多卡可以容纳32B模型的静态参数，但实际训练还需要考虑模型的切分方式与激活值部分。</li>
 </ul>
 <h3 id="3-3-后续方向"><a href="#3-3-后续方向" class="headerlink" title="3.3 后续方向"></a>3.3 后续方向</h3><p>既然单卡存不下但多卡总量够，接下来的核心工作就是如何将模型状态（参数、梯度、优化器状态）分布到多张显卡上。<br>目前主流的切分思路包括：</p>
 <ul>
-<li><strong>ZeRO&#x2F;DeepSpeed</strong>：侧重于切分优化器状态和梯度。</li>
+<li><strong>ZeRO/DeepSpeed</strong>：侧重于切分优化器状态和梯度。</li>
 <li><strong>FSDP</strong>：进一步切分模型参数。</li>
 <li><strong>3D 并行 (Megatron)</strong>：结合张量并行与流水并行。<br>这些会在后续的文章讲解。</li>
 </ul>
@@ -1275,7 +1252,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/" data-id="cuidtwhd3v8snnWkkmd6z6k9o" data-title="大模型显存物理边界" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/" data-id="cuidG1bZv6mLqIa24QxhGcrrg" data-title="大模型显存物理边界" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1316,7 +1293,7 @@
         <h1 id="训练基础"><a href="#训练基础" class="headerlink" title="训练基础"></a>训练基础</h1><p>本文只考虑神经网络的训练</p>
 <h2 id="1-神经网络的物理本质（Infra-视角）"><a href="#1-神经网络的物理本质（Infra-视角）" class="headerlink" title="1. 神经网络的物理本质（Infra 视角）"></a>1. 神经网络的物理本质（Infra 视角）</h2><ul>
 <li><strong>本质</strong>：一系列张量（Tensor）的连续变换。数据以向量形式输入，经过层层矩阵运算，最终得到输出。</li>
-<li><strong>MLP 示例</strong>：最基础的结构 y &#x3D; Wx + b。<ul>
+<li><strong>MLP 示例</strong>：最基础的结构 y = Wx + b。<ul>
 <li><strong>参数 (P)</strong>：即权重 $W$。Infra 侧关注其存储分布（单卡还是多卡）。</li>
 <li><strong>激活值 (A)</strong>：计算过程中产生的中间变量。Infra 侧关注其显存占用，是前向传播的水位线。</li>
 <li><strong>算子</strong>：如激活函数、Softmax。关注其计算开销与对显存碎片的贡献。</li>
@@ -1331,10 +1308,11 @@
 </ul>
 <p>常见训练方式：</p>
 <ul>
-<li><strong>纯 FP32 训练</strong>（老旧方法）：$P(4N) + G(4N) + O(8N) &#x3D; 16N$。</li>
-<li><strong>混合精度训练</strong>（主流）：$P(2N) + G(2N) + O(12N) &#x3D; 16N$。</li>
+<li><strong>纯 FP32 训练</strong>（老旧方法）：$P(4N) + G(4N) + O(8N) = 16N$。</li>
+<li><strong>混合精度训练</strong>（主流）：$P(2N) + G(2N) + O(12N) = 16N$。</li>
 </ul>
-<h3 id="2-2-常见数据类型"><a href="#2-2-常见数据类型" class="headerlink" title="2.2 常见数据类型"></a>2.2 常见数据类型</h3><table>
+<h3 id="2-2-常见数据类型"><a href="#2-2-常见数据类型" class="headerlink" title="2.2 常见数据类型"></a>2.2 常见数据类型</h3><div class="table-container">
+<table>
 <thead>
 <tr>
 <th>数据类型</th>
@@ -1345,7 +1323,8 @@
 <th>备注</th>
 </tr>
 </thead>
-<tbody><tr>
+<tbody>
+<tr>
 <td>FP8</td>
 <td>1</td>
 <td>1</td>
@@ -1359,7 +1338,7 @@
 <td>1</td>
 <td>5</td>
 <td>10</td>
-<td>2 字节，训练&#x2F;推理常见，兼顾计算速度与精度</td>
+<td>2 字节，训练/推理常见，兼顾计算速度与精度</td>
 </tr>
 <tr>
 <td>BF16</td>
@@ -1385,30 +1364,32 @@
 <td>10</td>
 <td>仅作为 TensorCore 内部计算格式，不用于显存存储。让 FP32 任务在不改代码的前提下获得近乎 FP16 的速度。</td>
 </tr>
-</tbody></table>
+</tbody>
+</table>
+</div>
 <p><strong>补充说明：</strong></p>
 <ul>
-<li>BF16 与 FP32 拥有完全一致的指数位（8 位），所以理论上 FP32 范围内的数都能“无溢出”直接转为 BF16 存储&#x2F;计算，只损失尾数精度。PyTorch 等训练框架广泛支持 FP32↔BF16 自动转换，方便在硬件加速下运算。</li>
+<li>BF16 与 FP32 拥有完全一致的指数位（8 位），所以理论上 FP32 范围内的数都能“无溢出”直接转为 BF16 存储/计算，只损失尾数精度。PyTorch 等训练框架广泛支持 FP32↔BF16 自动转换，方便在硬件加速下运算。</li>
 <li>TF32 (TensorFloat-32) 是 NVIDIA 新硬件上专为深度学习 TensorCore 设计的数据格式，精度介于 FP16 与 FP32 之间，加速大规模矩阵乘。</li>
-<li>选择数据类型时需权衡精度&#x2F;动态范围&#x2F;算力&#x2F;内存，实际项目中常见混合精度与动态切换方案。</li>
+<li>选择数据类型时需权衡精度/动态范围/算力/内存，实际项目中常见混合精度与动态切换方案。</li>
 </ul>
 <h3 id="2-3-训练阶段显存占用情况"><a href="#2-3-训练阶段显存占用情况" class="headerlink" title="2.3 训练阶段显存占用情况"></a>2.3 训练阶段显存占用情况</h3><ol>
-<li><strong>前向传播</strong>：水位 &#x3D; $(P + O) + A$<ul>
+<li><strong>前向传播</strong>：水位 = $(P + O) + A$<ul>
 <li><em>过程</em>：随着层数加深，激活值 $A$ 像叠罗汉一样堆积。</li>
 <li><em>终态</em>：到达前向传播结束，持有全量激活值。</li>
 </ul>
 </li>
-<li><strong>反向传播</strong>：水位 &#x3D; $(P + O) + A + G$<ul>
+<li><strong>反向传播</strong>：水位 = $(P + O) + A + G$<ul>
 <li><em>过程</em>：显存峰值在这个阶段。梯度 $G$ 在产生，激活值 $A$ 在逐层释放。</li>
 <li><em>峰值</em>：出现在反向传播开始的瞬间，此时 $A$ 还没开始释放，而第一层梯度 $G$ 已经产生。</li>
 </ul>
 </li>
-<li><strong>参数更新</strong>：水位 &#x3D; $(P + O) + G$<ul>
+<li><strong>参数更新</strong>：水位 = $(P + O) + G$<ul>
 <li><em>过程</em>：此时 $A$ 已完全释放。优化器利用 $G$ 更新 $O$ 和 $P$。</li>
 <li><em>终态</em>：更新完毕，清空 $G$。</li>
 </ul>
 </li>
-<li><strong>休整期</strong>：水位 &#x3D; $P + O$<ul>
+<li><strong>休整期</strong>：水位 = $P + O$<ul>
 <li><em>状态</em>：显存回到最低水位，等待下一轮 Batch。</li>
 </ul>
 </li>
@@ -1417,22 +1398,17 @@
 <h2 id="3-Transformer：大模型并行的结构基础"><a href="#3-Transformer：大模型并行的结构基础" class="headerlink" title="3. Transformer：大模型并行的结构基础"></a>3. Transformer：大模型并行的结构基础</h2><h3 id="3-1-Attention-机制与显存瓶颈"><a href="#3-1-Attention-机制与显存瓶颈" class="headerlink" title="3.1 Attention 机制与显存瓶颈"></a>3.1 Attention 机制与显存瓶颈</h3><ul>
 <li><strong>QKV 逻辑</strong>：Q(找什么)与 K(有什么)做矩阵乘法算相关性，再作用于 V(内容) 得到输出。</li>
 <li><strong>显存瓶颈</strong>：计算过程中会产生一个 $(Seq, Seq)$ 大小的中间矩阵。</li>
-<li><strong>结论</strong>：显存占用随序列长度 $S$ 的<strong>平方</strong>增长。这是长文本训练（如 32k+）容易 OOM 的根本原因。</li>
-</ul>
-<h3 id="3-2-堆叠架构与并行友好性"><a href="#3-2-堆叠架构与并行友好性" class="headerlink" title="3.2 堆叠架构与并行友好性"></a>3.2 堆叠架构与并行友好性</h3><ul>
+<li><strong>结论</strong>：显存占用随序列长度 $S$ 的<strong>平方</strong>增长。这是长文本训练（如 32k+）容易 OOM 的根本原因。<h3 id="3-2-堆叠架构与并行友好性"><a href="#3-2-堆叠架构与并行友好性" class="headerlink" title="3.2 堆叠架构与并行友好性"></a>3.2 堆叠架构与并行友好性</h3></li>
 <li><strong>结构</strong>：由多个完全相同的 Block（Attention + MLP）纵向堆叠而成。</li>
 <li><strong>Infra 意义</strong>：<ul>
-<li><strong>好切分</strong>：这种“乐高式”结构是按层切分（FSDP&#x2F;流水并行）的物理基础。</li>
+<li><strong>好切分</strong>：这种“乐高式”结构是按层切分（FSDP/流水并行）的物理基础。</li>
 <li><strong>算力压榨</strong>：全是矩阵乘法，天然适配 GPU TensorCore，比 RNN 这种串行结构更容易跑满算力。</li>
 </ul>
 </li>
 </ul>
 <h2 id="4-PyTorch-训练实战（以-MLP-为例）"><a href="#4-PyTorch-训练实战（以-MLP-为例）" class="headerlink" title="4. PyTorch 训练实战（以 MLP 为例）"></a>4. PyTorch 训练实战（以 MLP 为例）</h2><h3 id="4-1-环境与模型定义"><a href="#4-1-环境与模型定义" class="headerlink" title="4.1 环境与模型定义"></a>4.1 环境与模型定义</h3><ul>
 <li><strong>依赖</strong>：PyTorch 核心库。</li>
-<li><strong>MLP 模型定义示例</strong>：2 个隐藏层为例（全连接），包含模型类与 forward 函数——</li>
-</ul>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">MLP</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, input_dim, hidden_dim1, hidden_dim2, output_dim</span>):</span><br><span class="line">        <span class="built_in">super</span>().__init__()</span><br><span class="line">        <span class="variable language_">self</span>.fc1 = nn.Linear(input_dim, hidden_dim1)</span><br><span class="line">        <span class="variable language_">self</span>.relu1 = nn.ReLU()</span><br><span class="line">        <span class="variable language_">self</span>.fc2 = nn.Linear(hidden_dim1, hidden_dim2)</span><br><span class="line">        <span class="variable language_">self</span>.relu2 = nn.ReLU()</span><br><span class="line">        <span class="variable language_">self</span>.fc3 = nn.Linear(hidden_dim2, output_dim)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">        x = <span class="variable language_">self</span>.relu1(<span class="variable language_">self</span>.fc1(x))</span><br><span class="line">        x = <span class="variable language_">self</span>.relu2(<span class="variable language_">self</span>.fc2(x))</span><br><span class="line">        x = <span class="variable language_">self</span>.fc3(x)</span><br><span class="line">        <span class="keyword">return</span> x</span><br></pre></td></tr></table></figure>
-<ul>
+<li><strong>MLP 模型定义示例</strong>：2 个隐藏层为例（全连接），包含模型类与 forward 函数——<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">MLP</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, input_dim, hidden_dim1, hidden_dim2, output_dim</span>):</span><br><span class="line">        <span class="built_in">super</span>().__init__()</span><br><span class="line">        <span class="variable language_">self</span>.fc1 = nn.Linear(input_dim, hidden_dim1)</span><br><span class="line">        <span class="variable language_">self</span>.relu1 = nn.ReLU()</span><br><span class="line">        <span class="variable language_">self</span>.fc2 = nn.Linear(hidden_dim1, hidden_dim2)</span><br><span class="line">        <span class="variable language_">self</span>.relu2 = nn.ReLU()</span><br><span class="line">        <span class="variable language_">self</span>.fc3 = nn.Linear(hidden_dim2, output_dim)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">        x = <span class="variable language_">self</span>.relu1(<span class="variable language_">self</span>.fc1(x))</span><br><span class="line">        x = <span class="variable language_">self</span>.relu2(<span class="variable language_">self</span>.fc2(x))</span><br><span class="line">        x = <span class="variable language_">self</span>.fc3(x)</span><br><span class="line">        <span class="keyword">return</span> x</span><br></pre></td></tr></table></figure></li>
 <li><em>Infra 意义</em>：<code>forward</code> 的执行顺序影响激活值的产生与释放。</li>
 </ul>
 <h3 id="4-2-数据准备"><a href="#4-2-数据准备" class="headerlink" title="4.2 数据准备"></a>4.2 数据准备</h3><ul>
@@ -1443,7 +1419,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" data-id="cuidSiiedMNNIoNWU-ccH7RcN" data-title="训练基础" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" data-id="cuidro2ZLZCVV7b_jl9FDR3h_" data-title="训练基础" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1482,7 +1458,7 @@
     <div class="e-content article-entry" itemprop="articleBody">
       
         <h1 id="分布式训练-Infra：目录与说明"><a href="#分布式训练-Infra：目录与说明" class="headerlink" title="分布式训练 Infra：目录与说明"></a>分布式训练 Infra：目录与说明</h1><h2 id="为什么要写这一组文章"><a href="#为什么要写这一组文章" class="headerlink" title="为什么要写这一组文章"></a>为什么要写这一组文章</h2><p>大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，<strong>分布式训练</strong>已经成为当前大模型训练的默认形态：多卡、多机协同，在<strong>通信、计算、存储</strong>三条线上同时做权衡。</p>
-<p>工程上常见的并行与显存优化手段包括：<strong>ZeRO-1&#x2F;2&#x2F;3</strong>（常与 <strong>DeepSpeed</strong> 一起出现）、<strong>PyTorch FSDP</strong>，以及更大规模时常用的 <strong>Megatron 系 3D 并行</strong>（数据并行 &#x2F; 张量并行 &#x2F; 流水并行等组合）。</p>
+<p>工程上常见的并行与显存优化手段包括：<strong>ZeRO-1/2/3</strong>（常与 <strong>DeepSpeed</strong> 一起出现）、<strong>PyTorch FSDP</strong>，以及更大规模时常用的 <strong>Megatron 系 3D 并行</strong>（数据并行 / 张量并行 / 流水并行等组合）。</p>
 <h2 id="本文聚焦：Infra-侧关心什么"><a href="#本文聚焦：Infra-侧关心什么" class="headerlink" title="本文聚焦：Infra 侧关心什么"></a>本文聚焦：Infra 侧关心什么</h2><p>分布式训练 <strong>Infra</strong> 更关注两件事：<strong>训得快</strong>、<strong>训得稳</strong>。稳定性本质上也是为效率服务——少挂、少重跑，等价于提高有效训练时间。前提始终是：<strong>在既定硬件与网络条件下</strong>，把算力和显存吃满、吃稳。</p>
 <p>日常排查时，下面两类指标应放在核心位置：<strong>GPU 利用率</strong>（是否真的在算）、<strong>显存水位与峰值</strong>（是否触顶、是否碎片严重）。更细的吞吐、步时、MFU 等，放在「优化与评估」章节里展开。</p>
 <h2 id="阅读方式"><a href="#阅读方式" class="headerlink" title="阅读方式"></a>阅读方式</h2><ul>
@@ -1490,19 +1466,19 @@
 <li><strong>第 4～7 章</strong>：进阶重点章节，每一章采用「<strong>30 秒结论 + 展开 + 一条实践或数据</strong>」的结构，方便快速抓住核心要点。</li>
 </ul>
 <h2 id="正文计划（章节列表）"><a href="#正文计划（章节列表）" class="headerlink" title="正文计划（章节列表）"></a>正文计划（章节列表）</h2><ol>
-<li><strong>训练基础知识</strong>：前向 &#x2F; 反向、batch、梯度同步在分布式里意味着什么；为后文「为什么要切模型 &#x2F; 切优化器状态」打底。</li>
+<li><strong>训练基础知识</strong>：前向 / 反向、batch、梯度同步在分布式里意味着什么；为后文「为什么要切模型 / 切优化器状态」打底。</li>
 <li><strong>大模型与显存物理边界</strong>：参数量与精度下的显存账单（参数、梯度、优化器状态、激活等），单卡为何装不下、OOM 从哪里来。</li>
-<li><strong>大模型优化与评估指标</strong>：常用优化手段的分类；除 GPU &#x2F; 显存利用率外，补充步时、吞吐、有效算力等如何一起看问题。</li>
-<li><strong>ZeRO-1&#x2F;2&#x2F;3、DeepSpeed 与实战</strong>：各阶段切的是什么、多付多少通信代价；结合可跑的最小示例或笔记。</li>
+<li><strong>大模型优化与评估指标</strong>：常用优化手段的分类；除 GPU / 显存利用率外，补充步时、吞吐、有效算力等如何一起看问题。</li>
+<li><strong>ZeRO-1/2/3、DeepSpeed 与实战</strong>：各阶段切的是什么、多付多少通信代价；结合可跑的最小示例或笔记。</li>
 <li><strong>FSDP 与实战</strong>：与 ZeRO 思路的对照、适用场景；对接现有 FSDP 环境与实验记录。</li>
-<li><strong>Megatron 与 3D 并行（实战或概念深化）</strong>：何时从 FSDP &#x2F; ZeRO 走向 TP&#x2F;PP&#x2F;组合并行；若线上以用户脚本为主，本章以「原理 + 边界 + 平台侧关注点」为主。</li>
+<li><strong>Megatron 与 3D 并行（实战或概念深化）</strong>：何时从 FSDP / ZeRO 走向 TP/PP/组合并行；若线上以用户脚本为主，本章以「原理 + 边界 + 平台侧关注点」为主。</li>
 <li><strong>综合优化实战</strong>：把通信与计算 overlap、混合精度、梯度累积、激活重算等放在同一张「组合拳」里，用至少一个真实瓶颈案例收束。</li>
 </ol>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" data-id="cuidl2xVipW1tjQzPLp0PPZ7p" data-title="分布式训练 Infra：目录与说明" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" data-id="cuidmNCaSn2k8DiBtxvo4ks59" data-title="分布式训练 Infra：目录与说明" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
