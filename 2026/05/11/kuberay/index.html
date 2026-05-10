@@ -6,15 +6,15 @@
   
   <title>KubeRay | AI Notes</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <meta name="description" content="KubeRayKubeRay 是 Ray 在 K8s 上的部署方案。Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因） 1.整体架构1.1 3种CRDRay J">
+  <meta name="description" content="KubeRay 是 Ray 在 K8s 上的部署方案。Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因） 1.整体架构1.1 3种CRDRay JobRay S">
 <meta property="og:type" content="article">
 <meta property="og:title" content="KubeRay">
 <meta property="og:url" content="https://huixiwan.github.io/2026/05/11/kuberay/index.html">
 <meta property="og:site_name" content="AI Notes">
-<meta property="og:description" content="KubeRayKubeRay 是 Ray 在 K8s 上的部署方案。Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因） 1.整体架构1.1 3种CRDRay J">
+<meta property="og:description" content="KubeRay 是 Ray 在 K8s 上的部署方案。Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因） 1.整体架构1.1 3种CRDRay JobRay S">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-05-10T16:23:46.143Z">
-<meta property="article:modified_time" content="2026-05-10T16:23:46.143Z">
+<meta property="article:published_time" content="2026-05-10T16:29:16.614Z">
+<meta property="article:modified_time" content="2026-05-10T16:29:16.614Z">
 <meta property="article:author" content="毁兮完">
 <meta name="twitter:card" content="summary">
   
@@ -78,7 +78,7 @@
         <section id="main"><article id="post-kuberay" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2026/05/11/kuberay/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T16:23:46.143Z" itemprop="datePublished">2026-05-11</time>
+  <time class="dt-published" datetime="2026-05-10T16:29:16.614Z" itemprop="datePublished">2026-05-11</time>
 </a>
     
   <div class="article-category">
@@ -101,7 +101,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="KubeRay"><a href="#KubeRay" class="headerlink" title="KubeRay"></a>KubeRay</h1><p>KubeRay 是 Ray 在 K8s 上的部署方案。<br>Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因）</p>
+        <p>KubeRay 是 Ray 在 K8s 上的部署方案。<br>Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因）</p>
 <h2 id="1-整体架构"><a href="#1-整体架构" class="headerlink" title="1.整体架构"></a>1.整体架构</h2><h3 id="1-1-3种CRD"><a href="#1-1-3种CRD" class="headerlink" title="1.1 3种CRD"></a>1.1 3种CRD</h3><p>Ray Job<br>Ray Service<br>Ray Cluster</p>
 <div class="table-container">
 <table>
@@ -269,7 +269,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/11/kuberay/" data-id="cuidd7TJ77HHIAcabGpil0gcA" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/11/kuberay/" data-id="cuid0yoA7CjPuvHufbaWAzoWt" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       

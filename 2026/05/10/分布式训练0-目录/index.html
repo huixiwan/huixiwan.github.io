@@ -6,15 +6,15 @@
   
   <title>分布式训练 Infra：目录与说明 | AI Notes</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-  <meta name="description" content="分布式训练 Infra：目录与说明为什么要写这一组文章大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，分布式训练已经成为当前大模型训练的默认形态：多卡、多机协同，在通信、计算、存储三条线上同时做权衡。 工程上常见的并行与显存优化手段包括：ZeRO-1&#x2F;2&#x2F;3（常与 DeepSpeed 一起出现）、PyTorch FSDP，以及更大规模时常用的 M">
+  <meta name="description" content="为什么要写这一组文章大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，分布式训练已经成为当前大模型训练的默认形态：多卡、多机协同，在通信、计算、存储三条线上同时做权衡。 工程上常见的并行与显存优化手段包括：ZeRO-1&#x2F;2&#x2F;3（常与 DeepSpeed 一起出现）、PyTorch FSDP，以及更大规模时常用的 Megatron 系 3D 并行（数">
 <meta property="og:type" content="article">
 <meta property="og:title" content="分布式训练 Infra：目录与说明">
 <meta property="og:url" content="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/index.html">
 <meta property="og:site_name" content="AI Notes">
-<meta property="og:description" content="分布式训练 Infra：目录与说明为什么要写这一组文章大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，分布式训练已经成为当前大模型训练的默认形态：多卡、多机协同，在通信、计算、存储三条线上同时做权衡。 工程上常见的并行与显存优化手段包括：ZeRO-1&#x2F;2&#x2F;3（常与 DeepSpeed 一起出现）、PyTorch FSDP，以及更大规模时常用的 M">
+<meta property="og:description" content="为什么要写这一组文章大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，分布式训练已经成为当前大模型训练的默认形态：多卡、多机协同，在通信、计算、存储三条线上同时做权衡。 工程上常见的并行与显存优化手段包括：ZeRO-1&#x2F;2&#x2F;3（常与 DeepSpeed 一起出现）、PyTorch FSDP，以及更大规模时常用的 Megatron 系 3D 并行（数">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-05-10T00:00:00.000Z">
-<meta property="article:modified_time" content="2026-05-10T15:59:26.275Z">
+<meta property="article:modified_time" content="2026-05-10T16:29:18.735Z">
 <meta property="article:author" content="毁兮完">
 <meta name="twitter:card" content="summary">
   
@@ -101,7 +101,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="分布式训练-Infra：目录与说明"><a href="#分布式训练-Infra：目录与说明" class="headerlink" title="分布式训练 Infra：目录与说明"></a>分布式训练 Infra：目录与说明</h1><h2 id="为什么要写这一组文章"><a href="#为什么要写这一组文章" class="headerlink" title="为什么要写这一组文章"></a>为什么要写这一组文章</h2><p>大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，<strong>分布式训练</strong>已经成为当前大模型训练的默认形态：多卡、多机协同，在<strong>通信、计算、存储</strong>三条线上同时做权衡。</p>
+        <h2 id="为什么要写这一组文章"><a href="#为什么要写这一组文章" class="headerlink" title="为什么要写这一组文章"></a>为什么要写这一组文章</h2><p>大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，<strong>分布式训练</strong>已经成为当前大模型训练的默认形态：多卡、多机协同，在<strong>通信、计算、存储</strong>三条线上同时做权衡。</p>
 <p>工程上常见的并行与显存优化手段包括：<strong>ZeRO-1/2/3</strong>（常与 <strong>DeepSpeed</strong> 一起出现）、<strong>PyTorch FSDP</strong>，以及更大规模时常用的 <strong>Megatron 系 3D 并行</strong>（数据并行 / 张量并行 / 流水并行等组合）。</p>
 <h2 id="本文聚焦：Infra-侧关心什么"><a href="#本文聚焦：Infra-侧关心什么" class="headerlink" title="本文聚焦：Infra 侧关心什么"></a>本文聚焦：Infra 侧关心什么</h2><p>分布式训练 <strong>Infra</strong> 更关注两件事：<strong>训得快</strong>、<strong>训得稳</strong>。稳定性本质上也是为效率服务——少挂、少重跑，等价于提高有效训练时间。前提始终是：<strong>在既定硬件与网络条件下</strong>，把算力和显存吃满、吃稳。</p>
 <p>日常排查时，下面两类指标应放在核心位置：<strong>GPU 利用率</strong>（是否真的在算）、<strong>显存水位与峰值</strong>（是否触顶、是否碎片严重）。更细的吞吐、步时、MFU 等，放在「优化与评估」章节里展开。</p>
@@ -109,20 +109,20 @@
 <li><strong>第 1～3 章</strong>：偏基础梳理，把概念和口径对齐，写作上会多举例、多做解释。</li>
 <li><strong>第 4～7 章</strong>：进阶重点章节，每一章采用「<strong>30 秒结论 + 展开 + 一条实践或数据</strong>」的结构，方便快速抓住核心要点。</li>
 </ul>
-<h2 id="正文计划（章节列表）"><a href="#正文计划（章节列表）" class="headerlink" title="正文计划（章节列表）"></a>正文计划（章节列表）</h2><ol>
-<li><strong>训练基础知识</strong>：前向 / 反向、batch、梯度同步在分布式里意味着什么；为后文「为什么要切模型 / 切优化器状态」打底。</li>
-<li><strong>大模型与显存物理边界</strong>：参数量与精度下的显存账单（参数、梯度、优化器状态、激活等），单卡为何装不下、OOM 从哪里来。</li>
-<li><strong>大模型优化与评估指标</strong>：常用优化手段的分类；除 GPU / 显存利用率外，补充步时、吞吐、有效算力等如何一起看问题。</li>
-<li><strong>ZeRO-1/2/3、DeepSpeed 与实战</strong>：各阶段切的是什么、多付多少通信代价；结合可跑的最小示例或笔记。</li>
-<li><strong>FSDP 与实战</strong>：与 ZeRO 思路的对照、适用场景；对接现有 FSDP 环境与实验记录。</li>
-<li><strong>Megatron 与 3D 并行（实战或概念深化）</strong>：何时从 FSDP / ZeRO 走向 TP/PP/组合并行；若线上以用户脚本为主，本章以「原理 + 边界 + 平台侧关注点」为主。</li>
-<li><strong>综合优化实战</strong>：把通信与计算 overlap、混合精度、梯度累积、激活重算等放在同一张「组合拳」里，用至少一个真实瓶颈案例收束。</li>
+<h2 id="章节列表"><a href="#章节列表" class="headerlink" title="章节列表"></a>章节列表</h2><ol>
+<li><strong>训练基础知识</strong></li>
+<li><strong>大模型与显存物理边界</strong></li>
+<li><strong>分布式训练优化与评估指标</strong></li>
+<li><strong>ZeRO-1/2/3、DeepSpeed 与实战</strong></li>
+<li><strong>FSDP 与实战</strong></li>
+<li><strong>Megatron 与 3D 并行</strong></li>
+<li><strong>综合优化实战</strong></li>
 </ol>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" data-id="cuidLs_OgxwvGRMkfFMjKEe_M" data-title="分布式训练 Infra：目录与说明" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" data-id="cuid0iivdsZn1dVOfov0jfaY_" data-title="分布式训练 Infra：目录与说明" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       

@@ -76,7 +76,7 @@
     <article id="post-kuberay" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2026/05/11/kuberay/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T16:23:46.143Z" itemprop="datePublished">2026-05-11</time>
+  <time class="dt-published" datetime="2026-05-10T16:29:16.614Z" itemprop="datePublished">2026-05-11</time>
 </a>
     
   <div class="article-category">
@@ -99,7 +99,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="KubeRay"><a href="#KubeRay" class="headerlink" title="KubeRay"></a>KubeRay</h1><p>KubeRay 是 Ray 在 K8s 上的部署方案。<br>Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因）</p>
+        <p>KubeRay 是 Ray 在 K8s 上的部署方案。<br>Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因）</p>
 <h2 id="1-整体架构"><a href="#1-整体架构" class="headerlink" title="1.整体架构"></a>1.整体架构</h2><h3 id="1-1-3种CRD"><a href="#1-1-3种CRD" class="headerlink" title="1.1 3种CRD"></a>1.1 3种CRD</h3><p>Ray Job<br>Ray Service<br>Ray Cluster</p>
 <div class="table-container">
 <table>
@@ -267,7 +267,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/11/kuberay/" data-id="cuidd7TJ77HHIAcabGpil0gcA" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/11/kuberay/" data-id="cuid0yoA7CjPuvHufbaWAzoWt" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -282,7 +282,7 @@
     <article id="post-ray" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2026/05/11/ray/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T16:21:28.310Z" itemprop="datePublished">2026-05-11</time>
+  <time class="dt-published" datetime="2026-05-10T16:29:15.579Z" itemprop="datePublished">2026-05-11</time>
 </a>
     
   <div class="article-category">
@@ -305,7 +305,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="Ray"><a href="#Ray" class="headerlink" title="Ray"></a>Ray</h1><p>分布式计算框架，是目前RL和推理框架的主要依赖框架了</p>
+        <p>分布式计算框架，是目前RL和推理框架的主要依赖框架了</p>
 <h2 id="1-Ray核心架构"><a href="#1-Ray核心架构" class="headerlink" title="1.Ray核心架构"></a>1.Ray核心架构</h2><p>Driver:用户提交任务的入口<br>Head：运行了GCS（Global Control Service，全局控制服务），集群的大脑，用于监控全局的资源，元数据。<br>跑Raylet（本地调度器）和Plasma Store（共享内存对象存储）</p>
 <ul>
 <li><strong>Driver</strong>（用户代码）<ul>
@@ -463,7 +463,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/11/ray/" data-id="cuidMVSKgDcG1ShUyMDLJYr9e" data-title="Ray" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/11/ray/" data-id="cuidgcB6xiOuIk3ZXBSzzM8hf" data-title="Ray" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -501,7 +501,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="分布式训练-Infra：目录与说明"><a href="#分布式训练-Infra：目录与说明" class="headerlink" title="分布式训练 Infra：目录与说明"></a>分布式训练 Infra：目录与说明</h1><h2 id="为什么要写这一组文章"><a href="#为什么要写这一组文章" class="headerlink" title="为什么要写这一组文章"></a>为什么要写这一组文章</h2><p>大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，<strong>分布式训练</strong>已经成为当前大模型训练的默认形态：多卡、多机协同，在<strong>通信、计算、存储</strong>三条线上同时做权衡。</p>
+        <h2 id="为什么要写这一组文章"><a href="#为什么要写这一组文章" class="headerlink" title="为什么要写这一组文章"></a>为什么要写这一组文章</h2><p>大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，<strong>分布式训练</strong>已经成为当前大模型训练的默认形态：多卡、多机协同，在<strong>通信、计算、存储</strong>三条线上同时做权衡。</p>
 <p>工程上常见的并行与显存优化手段包括：<strong>ZeRO-1/2/3</strong>（常与 <strong>DeepSpeed</strong> 一起出现）、<strong>PyTorch FSDP</strong>，以及更大规模时常用的 <strong>Megatron 系 3D 并行</strong>（数据并行 / 张量并行 / 流水并行等组合）。</p>
 <h2 id="本文聚焦：Infra-侧关心什么"><a href="#本文聚焦：Infra-侧关心什么" class="headerlink" title="本文聚焦：Infra 侧关心什么"></a>本文聚焦：Infra 侧关心什么</h2><p>分布式训练 <strong>Infra</strong> 更关注两件事：<strong>训得快</strong>、<strong>训得稳</strong>。稳定性本质上也是为效率服务——少挂、少重跑，等价于提高有效训练时间。前提始终是：<strong>在既定硬件与网络条件下</strong>，把算力和显存吃满、吃稳。</p>
 <p>日常排查时，下面两类指标应放在核心位置：<strong>GPU 利用率</strong>（是否真的在算）、<strong>显存水位与峰值</strong>（是否触顶、是否碎片严重）。更细的吞吐、步时、MFU 等，放在「优化与评估」章节里展开。</p>
@@ -509,20 +509,20 @@
 <li><strong>第 1～3 章</strong>：偏基础梳理，把概念和口径对齐，写作上会多举例、多做解释。</li>
 <li><strong>第 4～7 章</strong>：进阶重点章节，每一章采用「<strong>30 秒结论 + 展开 + 一条实践或数据</strong>」的结构，方便快速抓住核心要点。</li>
 </ul>
-<h2 id="正文计划（章节列表）"><a href="#正文计划（章节列表）" class="headerlink" title="正文计划（章节列表）"></a>正文计划（章节列表）</h2><ol>
-<li><strong>训练基础知识</strong>：前向 / 反向、batch、梯度同步在分布式里意味着什么；为后文「为什么要切模型 / 切优化器状态」打底。</li>
-<li><strong>大模型与显存物理边界</strong>：参数量与精度下的显存账单（参数、梯度、优化器状态、激活等），单卡为何装不下、OOM 从哪里来。</li>
-<li><strong>大模型优化与评估指标</strong>：常用优化手段的分类；除 GPU / 显存利用率外，补充步时、吞吐、有效算力等如何一起看问题。</li>
-<li><strong>ZeRO-1/2/3、DeepSpeed 与实战</strong>：各阶段切的是什么、多付多少通信代价；结合可跑的最小示例或笔记。</li>
-<li><strong>FSDP 与实战</strong>：与 ZeRO 思路的对照、适用场景；对接现有 FSDP 环境与实验记录。</li>
-<li><strong>Megatron 与 3D 并行（实战或概念深化）</strong>：何时从 FSDP / ZeRO 走向 TP/PP/组合并行；若线上以用户脚本为主，本章以「原理 + 边界 + 平台侧关注点」为主。</li>
-<li><strong>综合优化实战</strong>：把通信与计算 overlap、混合精度、梯度累积、激活重算等放在同一张「组合拳」里，用至少一个真实瓶颈案例收束。</li>
+<h2 id="章节列表"><a href="#章节列表" class="headerlink" title="章节列表"></a>章节列表</h2><ol>
+<li><strong>训练基础知识</strong></li>
+<li><strong>大模型与显存物理边界</strong></li>
+<li><strong>分布式训练优化与评估指标</strong></li>
+<li><strong>ZeRO-1/2/3、DeepSpeed 与实战</strong></li>
+<li><strong>FSDP 与实战</strong></li>
+<li><strong>Megatron 与 3D 并行</strong></li>
+<li><strong>综合优化实战</strong></li>
 </ol>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" data-id="cuidLs_OgxwvGRMkfFMjKEe_M" data-title="分布式训练 Infra：目录与说明" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" data-id="cuid0iivdsZn1dVOfov0jfaY_" data-title="分布式训练 Infra：目录与说明" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -560,7 +560,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="训练基础"><a href="#训练基础" class="headerlink" title="训练基础"></a>训练基础</h1><p>本文只考虑神经网络的训练</p>
+        <p>本文只考虑神经网络的训练</p>
 <h2 id="1-神经网络的物理本质（Infra-视角）"><a href="#1-神经网络的物理本质（Infra-视角）" class="headerlink" title="1. 神经网络的物理本质（Infra 视角）"></a>1. 神经网络的物理本质（Infra 视角）</h2><ul>
 <li><strong>本质</strong>：一系列张量（Tensor）的连续变换。数据以向量形式输入，经过层层矩阵运算，最终得到输出。</li>
 <li><strong>MLP 示例</strong>：最基础的结构 y = Wx + b。<ul>
@@ -689,7 +689,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" data-id="cuiduAsJRDYAPoM1qoJqYfG-g" data-title="训练基础" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" data-id="cuidxOj2_ydwniBzahANoEUco" data-title="训练基础" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -727,7 +727,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="大模型显存物理边界"><a href="#大模型显存物理边界" class="headerlink" title="大模型显存物理边界"></a>大模型显存物理边界</h1><p>本文主要讲述由于物理限制，单卡不能训练大模型的原因。</p>
+        <p>本文主要讲述由于物理限制，单卡不能训练大模型的原因。</p>
 <h2 id="1-大模型尺寸参数"><a href="#1-大模型尺寸参数" class="headerlink" title="1. 大模型尺寸参数"></a>1. 大模型尺寸参数</h2><h3 id="1-1-基础单位说明"><a href="#1-1-基础单位说明" class="headerlink" title="1.1 基础单位说明"></a>1.1 基础单位说明</h3><ul>
 <li><strong>7B (Billion)</strong>：70 亿个模型参数量。</li>
 <li><strong>参数量与显存的关系</strong>：在 BF16 精度下，1B 参数约占用 <strong>2 GB</strong> 显存（仅参数本身）。</li>
@@ -862,7 +862,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/" data-id="cuidwK1jZPChqKp_fU7ejBrM2" data-title="大模型显存物理边界" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/" data-id="cuidGzHMTK98YHZPKlx11sfGZ" data-title="大模型显存物理边界" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -900,7 +900,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="分布式训练优化策略与评估指标"><a href="#分布式训练优化策略与评估指标" class="headerlink" title="分布式训练优化策略与评估指标"></a>分布式训练优化策略与评估指标</h1><p>通过前文已经了解到由于单显卡无法承载大模型进行训练，所以引入了分布式训练。在分布式训练场景中，分布式通信是无法被忽视的一环，其对训练速度与稳定性会产生较大影响。<br>因此，在实现“能跑起来”之后，我们的核心目标就变成了：<strong>如何通过优化手段，尽可能掩盖或减少通信开销，从而压榨出硬件的极致算力。</strong><br>本文将从评估指标、通信基础、优化策略三个维度，梳理分布式训练的性能调优思路。</p>
+        <p>通过前文已经了解到由于单显卡无法承载大模型进行训练，所以引入了分布式训练。在分布式训练场景中，分布式通信是无法被忽视的一环，其对训练速度与稳定性会产生较大影响。<br>因此，在实现“能跑起来”之后，我们的核心目标就变成了：<strong>如何通过优化手段，尽可能掩盖或减少通信开销，从而压榨出硬件的极致算力。</strong><br>本文将从评估指标、通信基础、优化策略三个维度，梳理分布式训练的性能调优思路。</p>
 <h2 id="1-分布式训练核心指标"><a href="#1-分布式训练核心指标" class="headerlink" title="1. 分布式训练核心指标"></a>1. 分布式训练核心指标</h2><h3 id="1-1-MFU-Model-FLOPs-Utilization-——-最硬核指标"><a href="#1-1-MFU-Model-FLOPs-Utilization-——-最硬核指标" class="headerlink" title="1.1 MFU (Model FLOPs Utilization) —— 最硬核指标"></a>1.1 MFU (Model FLOPs Utilization) —— 最硬核指标</h3><ul>
 <li><strong>定义</strong>：GPU 真正用于“模型数学运算”的时间比例，反映了对硬件算力的压榨程度。</li>
 <li><strong>获取方法</strong>：无法直接读取，需根据公式 <code>(6 * 参数量 * Tokens) / (StepTime * 显卡理论算力)</code> 手动计算。</li>
@@ -1062,7 +1062,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" data-id="cuidOr43W5LDBNubAKM3hwsR1" data-title="分布式训练优化策略与评估指标" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" data-id="cuidSnJ1dS68M-t4A7ft8w1DB" data-title="分布式训练优化策略与评估指标" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1100,7 +1100,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="ZeRO-123和Deepspeed"><a href="#ZeRO-123和Deepspeed" class="headerlink" title="ZeRO-123和Deepspeed"></a>ZeRO-123和Deepspeed</h1><p>前面的章节讲述了大模型训练的实现策略与分布式场景的优化。本章节开始讲述其中一种实现策略，ZeRO-123与Deepspeed</p>
+        <p>前面的章节讲述了大模型训练的实现策略与分布式场景的优化。本章节开始讲述其中一种实现策略，ZeRO-123与Deepspeed</p>
 <h2 id="1-ZeRO原理"><a href="#1-ZeRO原理" class="headerlink" title="1. ZeRO原理"></a>1. ZeRO原理</h2><p>主要就是训练过程中的P+G+O无法被存储在一张显卡上，因此将P，G，O分配到其他卡上。</p>
 <h2 id="2-DDP-原始方案"><a href="#2-DDP-原始方案" class="headerlink" title="2. DDP 原始方案"></a>2. DDP 原始方案</h2><p>ZeRO是在分布式训练基础上进行的，因此下述先简单讲讲分布式训练与单卡训练过程的不同点。<br>DDP就是最经典的分布式训练方案。</p>
 <p>DDP 训练过程中，每张卡上都会加载同一份 P，各自使用不同的数据进行训练。每张卡算出的梯度 G 不同，因此需要通过All-Reduce 对 G 求平均，确保所有卡拿到相同的全局梯度后再更新 P，从而保证各卡上的 P 始终一致。</p>
@@ -1260,7 +1260,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" data-id="cuiddpYrtuM1X3LapjaDmRheG" data-title="ZeRO-123和Deepspeed" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" data-id="cuidXmvadVWW1TcciIbW1ySA1" data-title="ZeRO-123和Deepspeed" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1298,7 +1298,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="FSDP"><a href="#FSDP" class="headerlink" title="FSDP"></a>FSDP</h1><p>ZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。</p>
+        <p>ZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。</p>
 <h2 id="FSDP核心机制"><a href="#FSDP核心机制" class="headerlink" title="FSDP核心机制"></a>FSDP核心机制</h2><p>FSDP = Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片与重组机制，它将模型参数、梯度和优化器状态均匀分布在所有 GPU 上。本质是<strong>“用通讯换显存”</strong>。</p>
 <p>FSDP的分片原理：<br>通过 auto_wrap_policy 标记需要分片的层（通常是 Transformer Block），将每层的参数展平后均匀切分到各卡上。未被标记的层同样展平切分。<br>Transformer模型的层结构规整，适合按层做统一的分片处理。</p>
 <p>FSDP的重组原理：<br>先将未被标记的层 All-Gather 汇聚完整，然后逐层 All-Gather标记层的参数进行计算，算完立即丢弃，保证任意时刻只有一层是完整的</p>
@@ -1330,7 +1330,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuidX_vy-I5i70sP3Sij9__R4" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuidKWmajbh76MumDqD5_6RPS" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1368,7 +1368,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="Megatron-与-3D-并行"><a href="#Megatron-与-3D-并行" class="headerlink" title="Megatron 与 3D 并行"></a>Megatron 与 3D 并行</h1><p>之前讲述了ZeRO-123,和FSDP。但是前述的方法在处理特别大模型的时候还是会存在一些问题，前述方法本质还是数据并行，每张卡会计算完整的模型。当模型达到一定程度时，ZeRO-3的都要All-Gather参数值，通信量大，效率较低。因此可以换一个思路，直接切模型本身，也就是TP和PP。</p>
+        <p>之前讲述了ZeRO-123,和FSDP。但是前述的方法在处理特别大模型的时候还是会存在一些问题，前述方法本质还是数据并行，每张卡会计算完整的模型。当模型达到一定程度时，ZeRO-3的都要All-Gather参数值，通信量大，效率较低。因此可以换一个思路，直接切模型本身，也就是TP和PP。</p>
 <h2 id="1-TP-Tensor-Parallelism-——-张量并行"><a href="#1-TP-Tensor-Parallelism-——-张量并行" class="headerlink" title="1. TP (Tensor Parallelism) —— 张量并行"></a>1. TP (Tensor Parallelism) —— 张量并行</h2><h3 id="1-1-核心逻辑：把矩阵乘法拆开"><a href="#1-1-核心逻辑：把矩阵乘法拆开" class="headerlink" title="1.1 核心逻辑：把矩阵乘法拆开"></a>1.1 核心逻辑：把矩阵乘法拆开</h3><p>TP 不是在层与层之间切分，而是在 <strong>层内部</strong> 把矩阵乘法（Matrix Multiplication）拆分到多张卡上并行计算。</p>
 <h4 id="1-MLP-层的切分（纵切-横切）"><a href="#1-MLP-层的切分（纵切-横切）" class="headerlink" title="1. MLP 层的切分（纵切 + 横切）"></a>1. MLP 层的切分（纵切 + 横切）</h4><p>这是 Megatron 最精妙的地方，为了尽量减少通信，它采用了“两层一组”的策略：</p>
 <ul>
@@ -1435,7 +1435,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/" data-id="cuid3nGDs8Q9Pz29ATsmQsLqZ" data-title="Megatron 与 3D 并行" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/" data-id="cuidTCCTT8TbcwfXNYFrxqQRh" data-title="Megatron 与 3D 并行" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1473,7 +1473,7 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="分布式训练综合优化实战"><a href="#分布式训练综合优化实战" class="headerlink" title="分布式训练综合优化实战"></a>分布式训练综合优化实战</h1><p>本文将讲述几个具体模型的优化实战</p>
+        <p>本文将讲述几个具体模型的优化实战</p>
 <h2 id="环境说明"><a href="#环境说明" class="headerlink" title="环境说明"></a>环境说明</h2><p>使用AutoDL平台<br>框架：FSDP<br>硬件：5090 x 2（32GB×2）</p>
 <h2 id="性能指标"><a href="#性能指标" class="headerlink" title="性能指标"></a>性能指标</h2><p>tokens/s：每秒处理的 token 总数（双卡合计），直接反映训练吞吐。batch 越大、通信开销占比越小，tokens/s越高。<br>不选择 MFU 的原因：MFU 需要精确的理论 TFLOPS 和 FLOPs 乘数，这两者在实际环境中难以准确获取（sparse vs dense tensor core、模型架构差异等），算出来的值容易失真。tokens/s 是直接实测值，简单可靠。</p>
 <h2 id="Llama3-8B优化实战"><a href="#Llama3-8B优化实战" class="headerlink" title="Llama3-8B优化实战"></a>Llama3-8B优化实战</h2><h3 id="模型分析"><a href="#模型分析" class="headerlink" title="模型分析"></a>模型分析</h3><p>Llama3-8B，依据之前的显存账单计算公式：8*16 = 128 GiB<br>显存：32GB×2，显然存不下来。</p>
@@ -1520,7 +1520,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%837-%E7%BB%BC%E5%90%88%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98/" data-id="cuidWkFFImPwITAtFafZHXvcI" data-title="分布式训练综合优化实战" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%837-%E7%BB%BC%E5%90%88%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98/" data-id="cuid-MMz3afw3Py8rZciDFYhy" data-title="分布式训练综合优化实战" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
