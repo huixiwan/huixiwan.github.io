@@ -4,17 +4,17 @@
   <meta charset="utf-8">
   
   
-  <title>AI Notes</title>
+  <title>分布式训练优化策略与评估指标 | AI Notes</title>
   <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
   <meta name="description" content="分布式训练优化策略与评估指标通过前文已经了解到由于单显卡无法承载大模型进行训练，所以引入了分布式训练。在分布式训练场景中，分布式通信是无法被忽视的一环，其对训练速度与稳定性会产生较大影响。因此，在实现“能跑起来”之后，我们的核心目标就变成了：如何通过优化手段，尽可能掩盖或减少通信开销，从而压榨出硬件的极致算力。本文将从评估指标、通信基础、优化策略三个维度，梳理分布式训练的性能调优思路。 1. 分布">
 <meta property="og:type" content="article">
-<meta property="og:title" content="AI Notes">
+<meta property="og:title" content="分布式训练优化策略与评估指标">
 <meta property="og:url" content="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/index.html">
 <meta property="og:site_name" content="AI Notes">
 <meta property="og:description" content="分布式训练优化策略与评估指标通过前文已经了解到由于单显卡无法承载大模型进行训练，所以引入了分布式训练。在分布式训练场景中，分布式通信是无法被忽视的一环，其对训练速度与稳定性会产生较大影响。因此，在实现“能跑起来”之后，我们的核心目标就变成了：如何通过优化手段，尽可能掩盖或减少通信开销，从而压榨出硬件的极致算力。本文将从评估指标、通信基础、优化策略三个维度，梳理分布式训练的性能调优思路。 1. 分布">
 <meta property="og:locale" content="zh_CN">
-<meta property="article:published_time" content="2026-05-10T15:32:10.687Z">
-<meta property="article:modified_time" content="2026-05-10T15:32:10.687Z">
+<meta property="article:published_time" content="2026-05-10T15:44:33.651Z">
+<meta property="article:modified_time" content="2026-05-10T15:44:33.651Z">
 <meta property="article:author" content="毁兮完">
 <meta name="twitter:card" content="summary">
   
@@ -76,12 +76,26 @@
         <section id="main"><article id="post-分布式训练3-分布式训练优化与评估指标" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:32:10.687Z" itemprop="datePublished">2026-05-10</time>
+  <time class="dt-published" datetime="2026-05-10T15:44:33.651Z" itemprop="datePublished">2026-05-10</time>
 </a>
     
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a>
+  </div>
+
   </div>
   <div class="article-inner">
     
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      分布式训练优化策略与评估指标
+    </h1>
+  
+
+      </header>
     
     <div class="e-content article-entry" itemprop="articleBody">
       
@@ -247,7 +261,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" data-id="cuidXWwJe6NSDotvmni1VLSVQ" data-title="" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" data-id="cuidSUHaSt1P68LyysYKHX15h" data-title="分布式训练优化策略与评估指标" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -257,11 +271,11 @@
     
 <nav id="article-nav">
   
-    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" id="article-nav-newer" class="article-nav-link-wrap">
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" id="article-nav-newer" class="article-nav-link-wrap">
       <strong class="article-nav-caption">前一篇</strong>
       <div class="article-nav-title">
         
-          (no title)
+          ZeRO-123和Deepspeed
         
       </div>
     </a>
@@ -269,7 +283,7 @@
   
     <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/" id="article-nav-older" class="article-nav-link-wrap">
       <strong class="article-nav-caption">后一篇</strong>
-      <div class="article-nav-title"></div>
+      <div class="article-nav-title">大模型显存物理边界</div>
     </a>
   
 </nav>
@@ -283,6 +297,13 @@
           <aside id="sidebar">
   
     
+  <div class="widget-wrap">
+    <h3 class="widget-title">分类</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0Infra/">强化学习Infra</a></li></ul>
+    </div>
+  </div>
+
 
   
     
@@ -307,23 +328,23 @@
       <ul>
         
           <li>
-            <a href="/2026/05/10/kuberay/">(no title)</a>
+            <a href="/2026/05/10/kuberay/">KubeRay</a>
           </li>
         
           <li>
-            <a href="/2026/05/10/ray/">(no title)</a>
+            <a href="/2026/05/10/ray/">Ray</a>
           </li>
         
           <li>
-            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/">(no title)</a>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%837-%E7%BB%BC%E5%90%88%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98/">分布式训练综合优化实战</a>
           </li>
         
           <li>
-            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/">(no title)</a>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/">Megatron 与 3D 并行</a>
           </li>
         
           <li>
-            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%837-%E7%BB%BC%E5%90%88%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98/">(no title)</a>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/">FSDP</a>
           </li>
         
       </ul>
