@@ -35,9 +35,7 @@
   
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
 
-<!-- hexo injector head_end start -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
-<!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head>
+<meta name="generator" content="Hexo 8.1.2"></head>
 
 <body>
   <div id="container">
@@ -103,7 +101,6 @@
       
         <p>KubeRay 是 Ray 在 K8s 上的部署方案。<br>Ray 本身可以脱离 K8s 独立运行，但在生产环境中，需要 K8s 来管理 Pod的自动恢复、资源分配、故障转移（ray需要k8s的原因）。而k8s自身不具备对ray集群的管理能力，因此设计了kuberay插件，通过yaml实现ray集群的搭建销毁等管理（k8s需要KubeRay的原因）</p>
 <h2 id="1-整体架构"><a href="#1-整体架构" class="headerlink" title="1.整体架构"></a>1.整体架构</h2><h3 id="1-1-3种CRD"><a href="#1-1-3种CRD" class="headerlink" title="1.1 3种CRD"></a>1.1 3种CRD</h3><p>Ray Job<br>Ray Service<br>Ray Cluster</p>
-<div class="table-container">
 <table>
 <thead>
 <tr>
@@ -112,8 +109,7 @@
 <th>生命周期</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td><code>RayCluster</code></td>
 <td>创建长期运行的 Ray 集群</td>
 <td>手动删除才销毁</td>
@@ -128,11 +124,9 @@
 <td>部署 Ray Serve 在线推理服务</td>
 <td>手动删除才销毁</td>
 </tr>
-</tbody>
-</table>
-</div>
-<h3 id="1-2-整体架构"><a href="#1-2-整体架构" class="headerlink" title="1.2 整体架构"></a>1.2 整体架构</h3><p>K8s 层：管理 Pod 的生命周期（创建、销毁、资源分配）<br>KubeRay：把 Ray 组件映射成 K8s 资源（GCS → Head Pod，Raylet → 每个 Pod）<br>Ray 层：管理 Task/Actor 调度、对象存储、故障恢复</p>
-<p>用户<br>  │ kubectl apply rayjob.yaml<br>  ▼<br>K8s API Server（存 CRD 资源）<br>  │ 事件通知<br>  ▼<br>KubeRay Operator（常驻 Pod，监听 RayJob/RayCluster/RayService 资源）<br>  │<br>  │ Reconcile Loop：不断对比 期望状态 vs 实际状态<br>  │<br>  ├─→ 发现没有 Head Pod → 创建 Head Pod<br>  │     └─ Pod 内运行：GCS + Raylet + Dashboard<br>  │<br>  ├─→ 发现 Worker replicas 不够 → 创建 Worker Pod<br>  │     └─ Pod 内运行：Raylet + Worker 进程<br>  │<br>  ├─→ 创建 Service（Head 对外暴露端口）<br>  │<br>  └─→ Job 场景：集群就绪后 → 创建 Driver Pod 执行 entrypoint<br>        │<br>        ▼<br>      训练完成<br>        │<br>        └─→ shutdownAfterJobFinishes=true → 删除整个集群</p>
+</tbody></table>
+<h3 id="1-2-整体架构"><a href="#1-2-整体架构" class="headerlink" title="1.2 整体架构"></a>1.2 整体架构</h3><p>K8s 层：管理 Pod 的生命周期（创建、销毁、资源分配）<br>KubeRay：把 Ray 组件映射成 K8s 资源（GCS → Head Pod，Raylet → 每个 Pod）<br>Ray 层：管理 Task&#x2F;Actor 调度、对象存储、故障恢复</p>
+<p>用户<br>  │ kubectl apply rayjob.yaml<br>  ▼<br>K8s API Server（存 CRD 资源）<br>  │ 事件通知<br>  ▼<br>KubeRay Operator（常驻 Pod，监听 RayJob&#x2F;RayCluster&#x2F;RayService 资源）<br>  │<br>  │ Reconcile Loop：不断对比 期望状态 vs 实际状态<br>  │<br>  ├─→ 发现没有 Head Pod → 创建 Head Pod<br>  │     └─ Pod 内运行：GCS + Raylet + Dashboard<br>  │<br>  ├─→ 发现 Worker replicas 不够 → 创建 Worker Pod<br>  │     └─ Pod 内运行：Raylet + Worker 进程<br>  │<br>  ├─→ 创建 Service（Head 对外暴露端口）<br>  │<br>  └─→ Job 场景：集群就绪后 → 创建 Driver Pod 执行 entrypoint<br>        │<br>        ▼<br>      训练完成<br>        │<br>        └─→ shutdownAfterJobFinishes&#x3D;true → 删除整个集群</p>
 <p>实质就是先有k8s将用户创建资源信息存储到etcd。然后 K8s 自带的和第三方 Operator，他们的controller都会watch etcd，是kubeRay的controller能监听到kubeRay的资源，所以触发了KubeRay的调谐逻辑。而KubeRay的调谐逻辑，核心就是搭建ray集群，执行任务或是部署服务。</p>
 <p><strong>K8s Cluster</strong></p>
 <ul>
@@ -166,29 +160,27 @@
 </ul>
 <p>Worker Pod — 计算节点，可多副本扩缩，包含：</p>
 <ul>
-<li>Raylet：本地资源管理（CPU/GPU/内存注册）、任务调度、对象存储管理（Plasma）</li>
+<li>Raylet：本地资源管理（CPU&#x2F;GPU&#x2F;内存注册）、任务调度、对象存储管理（Plasma）</li>
 <li>Worker 进程：实际执行用户代码的进程，数量由 Pod 的 CPU 资源决定</li>
 </ul>
 <p>注：Ray 2.x：Plasma 已经合并进 Raylet 进程内部，不再独立存在</p>
 <p>Ray Node（逻辑概念） → Ray Pod（K8s物理载体），主要是生命周期交给了 K8s 管理</p>
-<div class="table-container">
 <table>
 <thead>
 <tr>
 <th>维度</th>
-<th>Ray Node（裸机/Docker）</th>
+<th>Ray Node（裸机&#x2F;Docker）</th>
 <th>Ray Pod（K8s）</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>进程组成</td>
 <td>相同</td>
 <td>相同</td>
 </tr>
 <tr>
 <td>资源分配</td>
-<td>手动指定 —num-cpus</td>
+<td>手动指定 –num-cpus</td>
 <td>Pod resources.limits 自动映射</td>
 </tr>
 <tr>
@@ -198,7 +190,7 @@
 </tr>
 <tr>
 <td>服务发现</td>
-<td>手动指定 —address</td>
+<td>手动指定 –address</td>
 <td>Head Service 自动注入</td>
 </tr>
 <tr>
@@ -206,20 +198,19 @@
 <td>手动 ray up 加机器</td>
 <td>改 replicas 即可</td>
 </tr>
-</tbody>
-</table>
-</div>
+</tbody></table>
 <h2 id="2-KubeRay的使用"><a href="#2-KubeRay的使用" class="headerlink" title="2.KubeRay的使用"></a>2.KubeRay的使用</h2><h3 id="2-1-插件安装"><a href="#2-1-插件安装" class="headerlink" title="2.1 插件安装"></a>2.1 插件安装</h3><p>KubeRay Operator 是个独立组件，需要部署到 K8s 集群里<br>kubectl apply -f <a target="_blank" rel="noopener" href="https://github.com/ray-project/kuberay/releases/latest/download/kuberay-operator.yaml">https://github.com/ray-project/kuberay/releases/latest/download/kuberay-operator.yaml</a></p>
 <p>k8s安装插件原理：<br>插件实质就是一组k8s资源。因此也就是让k8s运行这些资源就表示安装了插件。</p>
 <p>KubeRay插件资源说明：<br>CRD*3：注册 RayCluster、RayJob、RayService 三种自定义资源类型。<br>Deployment（核心）：Operator 本身，在k8s集群上运行这个pod，里面包含ray crd相关的controller。其会被运行在某一个k8s node节点上。<br>ClusterRole + ClusterRoleBinding + ServiceAccount：RBAC，权限相关。声明 Operator 需要的权限并绑定到其身份，从而能操作 Pod、Service 等<br>Namespace：创建 ray-system 命名空间</p>
 <p>安装注意点：<br>1、kuberay的版本需要与k8s的版本兼容<br>2、插件安装时保证最小权限，同时安装插件需要有管理员权限（kubeconfig）</p>
-<h3 id="2-2-RayJob的yaml配置"><a href="#2-2-RayJob的yaml配置" class="headerlink" title="2.2 RayJob的yaml配置"></a>2.2 RayJob的yaml配置</h3><p>最小配置：<br><figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">ray.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">RayJob</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">rl-training-job</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">rayClusterConfig:</span></span><br><span class="line">    <span class="attr">rayVersion:</span> <span class="string">&#x27;2.9.0&#x27;</span></span><br><span class="line">    <span class="attr">headGroupSpec:</span></span><br><span class="line">      <span class="attr">rayStartParams:</span></span><br><span class="line">        <span class="attr">dashboard-host:</span> <span class="string">&#x27;0.0.0.0&#x27;</span></span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-head</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">            <span class="attr">resources:</span></span><br><span class="line">              <span class="attr">limits:</span></span><br><span class="line">                <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">                <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">    <span class="attr">workerGroupSpecs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">replicas:</span> <span class="number">2</span></span><br><span class="line">      <span class="attr">rayStartParams:</span> &#123;&#125;</span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-worker</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">          <span class="attr">resources:</span></span><br><span class="line">            <span class="attr">limits:</span></span><br><span class="line">              <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">              <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">  <span class="attr">entrypoint:</span> <span class="string">python</span> <span class="string">/app/train.py</span></span><br><span class="line">  <span class="attr">shutdownAfterJobFinishes:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">ttlSecondsAfterFinished:</span> <span class="number">300</span></span><br></pre></td></tr></table></figure></p>
+<h3 id="2-2-RayJob的yaml配置"><a href="#2-2-RayJob的yaml配置" class="headerlink" title="2.2 RayJob的yaml配置"></a>2.2 RayJob的yaml配置</h3><p>最小配置：</p>
+<figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">ray.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">RayJob</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">rl-training-job</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">rayClusterConfig:</span></span><br><span class="line">    <span class="attr">rayVersion:</span> <span class="string">&#x27;2.9.0&#x27;</span></span><br><span class="line">    <span class="attr">headGroupSpec:</span></span><br><span class="line">      <span class="attr">rayStartParams:</span></span><br><span class="line">        <span class="attr">dashboard-host:</span> <span class="string">&#x27;0.0.0.0&#x27;</span></span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-head</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">            <span class="attr">resources:</span></span><br><span class="line">              <span class="attr">limits:</span></span><br><span class="line">                <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">                <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">    <span class="attr">workerGroupSpecs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">replicas:</span> <span class="number">2</span></span><br><span class="line">      <span class="attr">rayStartParams:</span> &#123;&#125;</span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-worker</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">          <span class="attr">resources:</span></span><br><span class="line">            <span class="attr">limits:</span></span><br><span class="line">              <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">              <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">  <span class="attr">entrypoint:</span> <span class="string">python</span> <span class="string">/app/train.py</span></span><br><span class="line">  <span class="attr">shutdownAfterJobFinishes:</span> <span class="literal">true</span></span><br><span class="line">  <span class="attr">ttlSecondsAfterFinished:</span> <span class="number">300</span></span><br></pre></td></tr></table></figure>
+
 <h3 id="2-3-RayJob创建"><a href="#2-3-RayJob创建" class="headerlink" title="2.3 RayJob创建"></a>2.3 RayJob创建</h3><p>RayJob属于k8s资源，其创建方式同k8s其他资源<br>kubectl apply -f XX.yaml</p>
-<p>RayJob 是 CRD，KubeRay reconcile 后创建的实际 K8s 资源是Pod（Head/Worker/Driver），不是 K8s Job。</p>
+<p>RayJob 是 CRD，KubeRay reconcile 后创建的实际 K8s 资源是Pod（Head&#x2F;Worker&#x2F;Driver），不是 K8s Job。</p>
 <h2 id="3-KubeRay-Volcano-协作"><a href="#3-KubeRay-Volcano-协作" class="headerlink" title="3.KubeRay + Volcano 协作"></a>3.KubeRay + Volcano 协作</h2><h3 id="3-1-为什么需要Volcano"><a href="#3-1-为什么需要Volcano" class="headerlink" title="3.1 为什么需要Volcano"></a>3.1 为什么需要Volcano</h3><p>K8s默认调度器逐个调度Pod，Ray集群的Head+Worker可能分散调度，部分Pod因资源不够Pending，已调度的Pod空跑等队友。</p>
 <p>Volcano提供<strong>Gang Scheduling</strong>：要么所有Pod一起分配，要么全不分，避免资源碎片。</p>
-<h3 id="3-2-Volcano的组成"><a href="#3-2-Volcano的组成" class="headerlink" title="3.2 Volcano的组成"></a>3.2 Volcano的组成</h3><div class="table-container">
-<table>
+<h3 id="3-2-Volcano的组成"><a href="#3-2-Volcano的组成" class="headerlink" title="3.2 Volcano的组成"></a>3.2 Volcano的组成</h3><table>
 <thead>
 <tr>
 <th>组件</th>
@@ -227,11 +218,10 @@
 <th>作用</th>
 </tr>
 </thead>
-<tbody>
-<tr>
+<tbody><tr>
 <td>volcano-scheduler</td>
 <td>调度器（Pod）</td>
-<td>替换default-scheduler，执行Gang/优先级/抢占调度</td>
+<td>替换default-scheduler，执行Gang&#x2F;优先级&#x2F;抢占调度</td>
 </tr>
 <tr>
 <td>PodGroup</td>
@@ -248,15 +238,14 @@
 <td>CRD</td>
 <td>多角色任务模板（如MPIJob），自动创建Pod+PodGroup</td>
 </tr>
-</tbody>
-</table>
-</div>
+</tbody></table>
 <ul>
 <li><strong>volcano-scheduler + PodGroup</strong>：KubeRay场景只用这两层，调度器替换+调度约束</li>
 <li><strong>VolcanoJob</strong>：给没有专属Operator的框架用（如原生MPI），有KubeRay时不需要</li>
 </ul>
 <h3 id="3-3-KubeRay场景Volcano的使用方式"><a href="#3-3-KubeRay场景Volcano的使用方式" class="headerlink" title="3.3 KubeRay场景Volcano的使用方式"></a>3.3 KubeRay场景Volcano的使用方式</h3><p>KubeRay仅使用Volcano的调度器。k8s支持指定调度器，因此只要在RayJob的yaml里指定k8s的调度器即可。即pod template里指定<code>schedulerName: volcano</code>，KubeRay自动创建PodGroup，不需要手动管理。</p>
 <figure class="highlight yaml"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br></pre></td><td class="code"><pre><span class="line"><span class="attr">apiVersion:</span> <span class="string">ray.io/v1</span></span><br><span class="line"><span class="attr">kind:</span> <span class="string">RayJob</span></span><br><span class="line"><span class="attr">metadata:</span></span><br><span class="line">  <span class="attr">name:</span> <span class="string">rl-training</span></span><br><span class="line"><span class="attr">spec:</span></span><br><span class="line">  <span class="attr">rayClusterConfig:</span></span><br><span class="line">    <span class="attr">rayVersion:</span> <span class="string">&#x27;2.9.0&#x27;</span></span><br><span class="line">    <span class="attr">headGroupSpec:</span></span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">schedulerName:</span> <span class="string">volcano</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-head</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">            <span class="attr">resources:</span></span><br><span class="line">              <span class="attr">limits:</span></span><br><span class="line">                <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">                <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">    <span class="attr">workerGroupSpecs:</span></span><br><span class="line">    <span class="bullet">-</span> <span class="attr">replicas:</span> <span class="number">3</span></span><br><span class="line">      <span class="attr">template:</span></span><br><span class="line">        <span class="attr">spec:</span></span><br><span class="line">          <span class="attr">schedulerName:</span> <span class="string">volcano</span></span><br><span class="line">          <span class="attr">containers:</span></span><br><span class="line">          <span class="bullet">-</span> <span class="attr">name:</span> <span class="string">ray-worker</span></span><br><span class="line">            <span class="attr">image:</span> <span class="string">rayproject/ray:2.9.0</span></span><br><span class="line">            <span class="attr">resources:</span></span><br><span class="line">              <span class="attr">limits:</span></span><br><span class="line">                <span class="attr">cpu:</span> <span class="string">&quot;4&quot;</span></span><br><span class="line">                <span class="attr">memory:</span> <span class="string">&quot;16Gi&quot;</span></span><br><span class="line">  <span class="attr">entrypoint:</span> <span class="string">python</span> <span class="string">/app/train.py</span></span><br><span class="line">  <span class="attr">shutdownAfterJobFinishes:</span> <span class="literal">true</span></span><br></pre></td></tr></table></figure>
+
 <h3 id="3-4-Volcano-Gang调度核心流程"><a href="#3-4-Volcano-Gang调度核心流程" class="headerlink" title="3.4 Volcano Gang调度核心流程"></a>3.4 Volcano Gang调度核心流程</h3><ol>
 <li>Pod创建，annotation指定所属PodGroup</li>
 <li>调度器按PodGroup归拢所有Pending的Pod</li>
@@ -269,7 +258,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/11/kuberay/" data-id="cuidZLR2Vsd1m21qOKiKwsA2K" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/11/kuberay/" data-id="cuidzl3QBs2wTsf3Qr-tyTS7T" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -399,6 +388,16 @@
 
 
 
+
+<script>
+MathJax = {
+  tex: {
+    inlineMath: [['$', '$'], ['\\(', '\\)']],
+    displayMath: [['$$', '$$'], ['\\[', '\\]']]
+  }
+};
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js" async></script>
 
 
   </div>
