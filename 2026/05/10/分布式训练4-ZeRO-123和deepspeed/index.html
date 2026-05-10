@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>ZeRO-123和Deepspeed | AI Notes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="ZeRO-123和Deepspeed前面的章节讲述了大模型训练的实现策略与分布式场景的优化。本章节开始讲述其中一种实现策略，ZeRO-123与Deepspeed 1. ZeRO原理主要就是训练过程中的P+G+O无法被存储在一张显卡上，因此将P，G，O分配到其他卡上。 2. DDP 原始方案ZeRO是在分布式训练基础上进行的，因此下述先简单讲讲分布式训练与单卡训练过程的不同点。DDP就是最经典的分布">
+<meta property="og:type" content="article">
+<meta property="og:title" content="ZeRO-123和Deepspeed">
+<meta property="og:url" content="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/index.html">
+<meta property="og:site_name" content="AI Notes">
+<meta property="og:description" content="ZeRO-123和Deepspeed前面的章节讲述了大模型训练的实现策略与分布式场景的优化。本章节开始讲述其中一种实现策略，ZeRO-123与Deepspeed 1. ZeRO原理主要就是训练过程中的P+G+O无法被存储在一张显卡上，因此将P，G，O分配到其他卡上。 2. DDP 原始方案ZeRO是在分布式训练基础上进行的，因此下述先简单讲讲分布式训练与单卡训练过程的不同点。DDP就是最经典的分布">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-09T23:20:00.000Z">
+<meta property="article:modified_time" content="2026-05-10T15:59:33.082Z">
+<meta property="article:author" content="毁兮完">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="AI Notes" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
+<!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">AI Notes</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://huixiwan.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-分布式训练4-ZeRO-123和deepspeed" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" class="article-date">
+  <time class="dt-published" datetime="2026-05-09T23:20:00.000Z" itemprop="datePublished">2026-05-10</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      ZeRO-123和Deepspeed
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="ZeRO-123和Deepspeed"><a href="#ZeRO-123和Deepspeed" class="headerlink" title="ZeRO-123和Deepspeed"></a>ZeRO-123和Deepspeed</h1><p>前面的章节讲述了大模型训练的实现策略与分布式场景的优化。本章节开始讲述其中一种实现策略，ZeRO-123与Deepspeed</p>
+<h2 id="1-ZeRO原理"><a href="#1-ZeRO原理" class="headerlink" title="1. ZeRO原理"></a>1. ZeRO原理</h2><p>主要就是训练过程中的P+G+O无法被存储在一张显卡上，因此将P，G，O分配到其他卡上。</p>
+<h2 id="2-DDP-原始方案"><a href="#2-DDP-原始方案" class="headerlink" title="2. DDP 原始方案"></a>2. DDP 原始方案</h2><p>ZeRO是在分布式训练基础上进行的，因此下述先简单讲讲分布式训练与单卡训练过程的不同点。<br>DDP就是最经典的分布式训练方案。</p>
+<p>DDP 训练过程中，每张卡上都会加载同一份 P，各自使用不同的数据进行训练。每张卡算出的梯度 G 不同，因此需要通过All-Reduce 对 G 求平均，确保所有卡拿到相同的全局梯度后再更新 P，从而保证各卡上的 P 始终一致。</p>
+<p>注意：这里是对G进行All-Reduce，而不是P。因为如果不对G求平均，使用不同的G不止更新出不同的P，还会更新出不同的O，这样的话，就要同步P和O了，而 O 的同步没有合理的公式。</p>
+<p>DDP 的流程：</p>
+<ol>
+<li>所有卡加载同一份 P，各自拿不同的数据</li>
+<li>前向 + 反向 → 算出各自的局部梯度 G（不同）</li>
+<li>All-Reduce 同步 G → 每张卡拿到全局平均梯度 G（相同）</li>
+<li>各卡用相同的 G 在本地更新 P → 更新后 P 自然相同</li>
+</ol>
+<h2 id="3-ZeRO-1"><a href="#3-ZeRO-1" class="headerlink" title="3. ZeRO-1"></a>3. ZeRO-1</h2><p>在 Adam 优化器中，<strong>O (优化器状态)</strong> 占比最大（12N，占静态显存的 75%）。ZeRO-1 发现 O 在前向和反向传播中完全不参与计算，仅在“参数更新”那一瞬间被访问。因此，将其均分到各卡上收益最高。</p>
+<p>核心流程（以 8 卡为例）</p>
+<ol>
+<li><strong>前向传播</strong>：水位 = $(P + (1/8)O) + A$<br> 相比于单卡训练，前向传播过程中，O只占用了1/8，对应自己负责的那部分优化器状态。并且当前步骤并未使用到O，所以只存储(1/8)O不会对该过程造成影响</li>
+<li><strong>反向传播</strong>：水位 = $(P + (1/8)O) + A + G$<br>同样当前步骤并未使用到O，所以只存储(1/8)O不会对该过程造成影响<br> 除此之外，A在反向传播过程中逐步释放（算完一层释放一层）。</li>
+<li><strong>Reduce-Scatter</strong>：水位 = $(P + (1/8)O) + (1/8)G$<br> 这步是ZeRO-1增加的步骤。<br> 首先ZeRO-1是在DP的基础上进行训练的，所以需要进行Reduce操作，每部分的梯度都需要求平均。<br> 然后由于每张卡仅存储了(1/8)O，仅能更新对应的(1/8)P，因此每张卡上仅需要对应的(1/8)G就能完成对应的更新操作，所以仅需要Reduce-Scatter操作，让每张卡处理对应的(1/8)G即可，不需要All-Reduce。</li>
+<li><strong>参数更新</strong>：水位：更新前 $(P + (1/8)O) + (1/8)G$，更新后 $((1/8)P + (1/8)O)$<br>由于每张卡只有(1/8)O，而切分策略保证了单卡上仅有的O能完成对应(1/8)P的更新，同时O也在同步更新。之后每张卡弃掉用不到的(7/8)P。<br>同时在算完P后，G也会被释放。</li>
+<li><strong>All-Gather</strong>：水位 = $P + (1/8)O$<br>这步是ZeRO-1增加的步骤。<br>为了后续快速的前向传播与后向传播计算，需要每张卡拥有完整的P，因此通过All-Gather将每张卡汇聚出完整的P</li>
+</ol>
+<p>ZeRO-1 核心流程 (以 8 卡为例，仅展示 GPU 0 视角)</p>
+<p>图例: ■ = 持有    □ = 空缺/已释放</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段1: 前向传播                              [不用 O]<br>═══════════════════════════════════════════════════════════<br>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  A[■■■■]<br>        全量P          1/8 O         激活值堆积</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段2: 反向传播                              [不用 O]<br>═══════════════════════════════════════════════════════════<br>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  G[■■■■■■■■]<br>        全量P          1/8 O         算出全量局部G<br>                        (一直没用上)    A 逐步释放中</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段3: Reduce-Scatter    ← 8卡互相交换梯度并求平均 →<br>═══════════════════════════════════════════════════════════<br>        交换前: G[■■■■■■■■]  全量局部梯度<br>        交换后: G[■□□□□□□□]  只留自己负责的 1/8 全局梯度</p>
+<p>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  G[■□□□□□□□]<br>                                ^^^^^^^^^^^^<br>                                各卡取不同位置，凑起来就是完整G<br>GPU0:  P[■■■■■■■■]  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段4: 参数更新 (本地计算，无通信)<br>═══════════════════════════════════════════════════════════<br>        Adam: 用 1/8 G + 1/8 O → 更新 1/8 P，O 同步刷新</p>
+<pre><code>    更新前: P[■■■■■■■■]  O[■□□□□□□□]  G[■□□□□□□□]
+    更新后: P[■□□□□□□□]  O[■□□□□□□□]  G[□□□□□□□□]
+            丢弃7/8 P      (已刷新)      G释放
+</code></pre><p>═══════════════════════════════════════════════════════════<br>阶段5: All-Gather    ← 8卡互相交换更新后的 1/8 P →<br>═══════════════════════════════════════════════════════════<br>        交换前: P[■□□□□□□□]  每人只有自己的 1/8<br>        交换后: P[■■■■■■■■]  汇聚成全量新 P</p>
+<p>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]<br>        完整新P         1/8 O → 回到阶段1，开始下一轮</p>
+<p>多卡视角看 Reduce-Scatter 这一步会更直观：</p>
+<p>Reduce-Scatter: 8卡各持不同分片的 O，所以各取不同位置的 G</p>
+<p>GPU0:  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
+<p>横向拼起来 = 完整的 G 和 O，每张卡只做自己的那块更新</p>
+<h2 id="4-ZeRO-2"><a href="#4-ZeRO-2" class="headerlink" title="4. ZeRO-2"></a>4. ZeRO-2</h2><p>即使把优化器状态（O）均匀分布到所有显卡，每张卡依然无法容纳全部模型参数，因此还需要进一步优化显存：ZeRO-2 针对梯度（G）进行了切分。其核心思想是——反向传播计算过程中，每张卡只保留自身负责的 (1/8) G 分片，而不是完整保留所有梯度。</p>
+<p>实现方式是：在反向传播进行到每一层时，都会同步执行一次 Reduce-Scatter 操作，把这一层产出的梯度立即切分、分发至各卡，确保每张卡始终只持有属于自己的那部分梯度分片 (1/8 G)。显著降低了单卡所需显存，从而支持更大规模的模型训练。</p>
+<p>类似下图：<br>ZeRO-1<br>GPU0:  P[■■■■■■■■]  G[■■■■■■■■]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[■■■■■■■■]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
+<p>ZeRO-2<br>GPU0:  P[■■■■■■■■]  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
+<p>峰值显存对比（反向传播过程中）：<br>ZeRO-1：$(P + (1/8)O) + A + G(全量)$<br>ZeRO-2：$(P + (1/8)O) + A + G(1/8)$</p>
+<p>通信总量：虽然在每一层计算完后就会进行Reduce-Scatter将参数同步到其他卡上，但是实际传输数据的总量均是(7/8)G，然后Reduce的过程在各自卡上，计算很快，时间忽略不计。除此之外，传输过程是异步进行的，属于计算通信重叠，所以实际训练过程并不一定比ZeRO-1慢（ZeRO-2每次通信仍会有额外开销）。</p>
+<h2 id="5-ZeRO-3"><a href="#5-ZeRO-3" class="headerlink" title="5. ZeRO-3"></a>5. ZeRO-3</h2><p>即使将O，G均分到其他卡上，仍放不下所有参数，甚至对于70B的模型，其模型参数量达到140GB，光模型参数一张卡就已经放不下了。因此需要将P也切分分配到其他卡上。</p>
+<p>在ZeRO-3场景下，由于单卡缺少完整的参数，因此一张卡在正向传播过程中就需要进行通信了。<br>ZeRO-3中对每一层进行了切分，因此在每一层计算时均需要进行一次All-Gather完成该层的计算，然后在计算完后，丢弃同步过来的P。</p>
+<p>核心流程：</p>
+<ol>
+<li><p><strong>前向传播</strong>：水位 = $((1/8)P + (1/8)O) + A$<br>1.1 All-Gather当前层的参数<br>1.2 计算当前层的激活值<br>1.3 丢弃同步过来的层参数<br>1.4 重复上述步骤直到全部层计算完毕</p>
+</li>
+<li><p><strong>反向传播</strong>：水位 = $((1/8)P + (1/8)O) + A + (1/8)G$<br>2.1 All-Gather当前层的参数<br>2.2 计算当前层的梯度<br>2.3 丢弃当前层的激活值与同步过来的层参数<br>2.4 Reduce-Scatter当前层的梯度<br>2.5 重复上述步骤直到全部层计算完毕</p>
+</li>
+<li><p><strong>参数更新</strong>：水位：更新前 $((1/8)P + (1/8)O) + (1/8)G$，更新后 $((1/8)P + (1/8)O)$<br>与ZeRO-1相同，各卡更新自己的P与O即可，更新完后，丢掉G</p>
+</li>
+</ol>
+<h2 id="6-DeepSpeed"><a href="#6-DeepSpeed" class="headerlink" title="6. DeepSpeed"></a>6. DeepSpeed</h2><h3 id="6-1-DeepSpeed-是什么"><a href="#6-1-DeepSpeed-是什么" class="headerlink" title="6.1 DeepSpeed 是什么"></a>6.1 DeepSpeed 是什么</h3><p>DeepSpeed 是微软开发的<strong>分布式训练框架</strong>，上面讲的 ZeRO-1/2/3 正是由 DeepSpeed 团队提出的。DeepSpeed 将 ZeRO 论文中的理论工程化，提供了一套易用的训练加速库。</p>
+<p>简单理解：<strong>ZeRO 是论文/思想，DeepSpeed 是实现/框架</strong>。</p>
+<h3 id="6-2-核心能力"><a href="#6-2-核心能力" class="headerlink" title="6.2 核心能力"></a>6.2 核心能力</h3><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ZeRO-1/2/3</td>
+<td>上面已详细讲述，核心显存优化手段</td>
+</tr>
+<tr>
+<td>ZeRO-Infinity</td>
+<td>将O/G甚至P卸载到CPU内存或NVMe磁盘，进一步突破显存瓶颈</td>
+</tr>
+<tr>
+<td>3D并行</td>
+<td>将数据并行（ZeRO）、张量并行、流水线并行组合使用</td>
+</tr>
+<tr>
+<td>混合精度训练</td>
+<td>FP16/BF16 + Loss Scaling，减少显存占用并加速计算</td>
+</tr>
+<tr>
+<td>梯度累积</td>
+<td>模拟大batch size，适合单卡显存不足以一次处理大批次数据的场景</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="6-3-ZeRO-Infinity"><a href="#6-3-ZeRO-Infinity" class="headerlink" title="6.3 ZeRO-Infinity"></a>6.3 ZeRO-Infinity</h3><p>ZeRO-1/2/3 已经将显存分摊到多张GPU上，但当模型足够大（如 175B+），即使多卡分摊仍然放不下。ZeRO-Infinity 的思路是<strong>把不急需的数据暂时搬到更便宜但更慢的存储上</strong>：</p>
+<ul>
+<li><strong>优化器状态</strong> → 卸载到 CPU 内存（速度较快）</li>
+<li><strong>参数/梯度</strong> → 必要时卸载到 NVMe 磁盘（速度较慢，但容量大）</li>
+</ul>
+<p>代价是训练速度会下降（CPU/NVMe 与 GPU 之间的数据搬运有延迟），但好处是<strong>用时间换空间</strong>，使得在有限GPU资源下训练超大模型成为可能。</p>
+<h3 id="6-4-DeepSpeed-配置简介"><a href="#6-4-DeepSpeed-配置简介" class="headerlink" title="6.4 DeepSpeed 配置简介"></a>6.4 DeepSpeed 配置简介</h3><p>DeepSpeed 通过一个 <code>ds_config.json</code> 文件控制训练行为，核心配置项：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;train_batch_size&quot;</span><span class="punctuation">:</span> <span class="number">128</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;gradient_accumulation_steps&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;optimizer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;Adam&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;params&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;lr&quot;</span><span class="punctuation">:</span> <span class="number">1e-4</span> <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;zero_optimization&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;stage&quot;</span><span class="punctuation">:</span> <span class="number">2</span><span class="punctuation">,</span>                  <span class="comment">// 1/2/3 对应 ZeRO-1/2/3</span></span><br><span class="line">    <span class="attr">&quot;offload_optimizer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;device&quot;</span><span class="punctuation">:</span> <span class="string">&quot;cpu&quot;</span>            <span class="comment">// ZeRO-Infinity: 将优化器状态卸载到CPU</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;offload_param&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;device&quot;</span><span class="punctuation">:</span> <span class="string">&quot;nvme&quot;</span>           <span class="comment">// ZeRO-Infinity: 将参数卸载到NVMe</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;bf16&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span> <span class="punctuation">&#125;</span>    <span class="comment">// 混合精度</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+<p>关键配置项就一个：<code>zero_optimization.stage</code>，设为 1/2/3 对应使用 ZeRO-1/2/3。配合 <code>offload_*</code> 即可开启 ZeRO-Infinity。</p>
+<h3 id="6-5-ZeRO-1-2-3-总结对比"><a href="#6-5-ZeRO-1-2-3-总结对比" class="headerlink" title="6.5 ZeRO-1/2/3 总结对比"></a>6.5 ZeRO-1/2/3 总结对比</h3><div class="table-container">
+<table>
+<thead>
+<tr>
+<th></th>
+<th>ZeRO-1</th>
+<th>ZeRO-2</th>
+<th>ZeRO-3</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>切分对象</td>
+<td>O</td>
+<td>O + G</td>
+<td>O + G + P</td>
+</tr>
+<tr>
+<td>单卡静态显存</td>
+<td>$P + (1/N)O$</td>
+<td>$P + (1/N)(O+G)$</td>
+<td>$(1/N)(P+O+G)$</td>
+</tr>
+<tr>
+<td>通信开销</td>
+<td>低</td>
+<td>中</td>
+<td>高</td>
+</tr>
+<tr>
+<td>训练速度影响</td>
+<td>几乎无</td>
+<td>较小</td>
+<td>明显下降（频繁All-Gather）</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>模型刚好放不下的情况</td>
+<td>需要更大batch的场景</td>
+<td>模型极大，单卡放不下P的场景</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>选型原则：<strong>能用低stage就不用高stage</strong>，通信开销随stage递增，速度随stage递减。</p>
+<h3 id="6-6-使用示例"><a href="#6-6-使用示例" class="headerlink" title="6.6 使用示例"></a>6.6 使用示例</h3><p>一个最简的 DeepSpeed 训练流程只需要 <strong>三步</strong>：写模型、写配置、启动。</p>
+<h4 id="第一步：训练脚本-train-py"><a href="#第一步：训练脚本-train-py" class="headerlink" title="第一步：训练脚本 train.py"></a>第一步：训练脚本 <code>train.py</code></h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> deepspeed</span><br><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn</span><br><span class="line"><span class="keyword">from</span> torch.utils.data <span class="keyword">import</span> DataLoader, TensorDataset</span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. 定义模型（以简单MLP为例）</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">SimpleModel</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, hidden_dim=<span class="number">1024</span></span>):</span><br><span class="line">        <span class="built_in">super</span>().__init__()</span><br><span class="line">        <span class="variable language_">self</span>.net = nn.Sequential(</span><br><span class="line">            nn.Linear(hidden_dim, hidden_dim),</span><br><span class="line">            nn.ReLU(),</span><br><span class="line">            nn.Linear(hidden_dim, hidden_dim),</span><br><span class="line">            nn.ReLU(),</span><br><span class="line">            nn.Linear(hidden_dim, <span class="number">1</span>),</span><br><span class="line">        )</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">        <span class="keyword">return</span> <span class="variable language_">self</span>.net(x).squeeze()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 构造模型、数据、损失函数</span></span><br><span class="line">model = SimpleModel()</span><br><span class="line">dataset = TensorDataset(torch.randn(<span class="number">10000</span>, <span class="number">1024</span>), torch.randn(<span class="number">10000</span>))</span><br><span class="line">loader = DataLoader(dataset, batch_size=<span class="number">32</span>)</span><br><span class="line"></span><br><span class="line">criterion = nn.MSELoss()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. DeepSpeed 初始化（替代原来的 optimizer = ... ）</span></span><br><span class="line"><span class="comment">#    engine 就是 deepspeed 管理后的模型，包含了优化器、调度器等</span></span><br><span class="line">model_engine, optimizer, _, _ = deepspeed.initialize(</span><br><span class="line">    model=model,</span><br><span class="line">    model_parameters=model.parameters(),</span><br><span class="line">    config=<span class="string">&quot;ds_config.json&quot;</span>,       <span class="comment"># 配置文件路径</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 训练循环（和普通PyTorch几乎一样，区别只在 loss.backward → engine.backward）</span></span><br><span class="line">model_engine.train()</span><br><span class="line"><span class="keyword">for</span> epoch <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">3</span>):</span><br><span class="line">    <span class="keyword">for</span> batch_x, batch_y <span class="keyword">in</span> loader:</span><br><span class="line">        batch_x, batch_y = batch_x.to(model_engine.device), batch_y.to(model_engine.device)</span><br><span class="line"></span><br><span class="line">        outputs = model_engine(batch_x)</span><br><span class="line">        loss = criterion(outputs, batch_y)</span><br><span class="line"></span><br><span class="line">        model_engine.backward(loss)        <span class="comment"># 替代 loss.backward()</span></span><br><span class="line">        model_engine.step()                <span class="comment"># 替代 optimizer.step()</span></span><br></pre></td></tr></table></figure>
+<p>对比普通 PyTorch 训练，改动只有两处：</p>
+<ul>
+<li>用 <code>deepspeed.initialize()</code> 替代手动创建 optimizer</li>
+<li>用 <code>model_engine.backward()</code> + <code>model_engine.step()</code> 替代 <code>loss.backward()</code> + <code>optimizer.step()</code></li>
+</ul>
+<h4 id="第二步：配置文件-ds-config-json"><a href="#第二步：配置文件-ds-config-json" class="headerlink" title="第二步：配置文件 ds_config.json"></a>第二步：配置文件 <code>ds_config.json</code></h4><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;train_batch_size&quot;</span><span class="punctuation">:</span> <span class="number">256</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;gradient_accumulation_steps&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;zero_optimization&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;stage&quot;</span><span class="punctuation">:</span> <span class="number">2</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;bf16&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="string">&quot;auto&quot;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+<p>就一个关键配置：<code>stage: 2</code> 表示使用 ZeRO-2。想切 ZeRO-3 改成 <code>3</code> 即可。</p>
+<h4 id="第三步：启动命令"><a href="#第三步：启动命令" class="headerlink" title="第三步：启动命令"></a>第三步：启动命令</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 单机多卡（最常见）</span></span><br><span class="line">deepspeed train.py --deepspeed_config ds_config.json</span><br><span class="line"></span><br><span class="line"><span class="comment"># 多机多卡</span></span><br><span class="line">deepspeed --num_gpus=8 train.py --deepspeed_config ds_config.json</span><br><span class="line"></span><br><span class="line"><span class="comment"># 等价于 torchrun 的用法</span></span><br><span class="line">deepspeed --num_nodes=2 --num_gpus_per_node=8 train.py --deepspeed_config ds_config.json</span><br></pre></td></tr></table></figure>
+<p><code>deepspeed</code> 命令会自动处理多进程启动、GPU分配、通信组初始化等，替代原来的 <code>torchrun</code> 或 <code>python -m torch.distributed.launch</code>。</p>
+<h4 id="与-Hugging-Face-集成（实战更常用）"><a href="#与-Hugging-Face-集成（实战更常用）" class="headerlink" title="与 Hugging Face 集成（实战更常用）"></a>与 Hugging Face 集成（实战更常用）</h4><p>实际工作中更常见的是用 Hugging Face Transformers + DeepSpeed，只需要在 <code>TrainingArguments</code> 中加一行：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> transformers <span class="keyword">import</span> TrainingArguments, Trainer</span><br><span class="line"></span><br><span class="line">training_args = TrainingArguments(</span><br><span class="line">    output_dir=<span class="string">&quot;./output&quot;</span>,</span><br><span class="line">    per_device_train_batch_size=<span class="number">16</span>,</span><br><span class="line">    <span class="comment"># 只需加这一行，指向配置文件即可</span></span><br><span class="line">    deepspeed=<span class="string">&quot;ds_config.json&quot;</span>,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">trainer = Trainer(</span><br><span class="line">    model=model,</span><br><span class="line">    args=training_args,</span><br><span class="line">    train_dataset=train_dataset,</span><br><span class="line">)</span><br><span class="line">trainer.train()</span><br></pre></td></tr></table></figure>
+<p>Hugging Face 内部会自动调用 <code>deepspeed.initialize()</code>，不需要手动管理 engine。</p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" data-id="cuidRToKwgUAtyfgZvxd0Vj0w" data-title="ZeRO-123和Deepspeed" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">前一篇</strong>
+      <div class="article-nav-title">
+        
+          分布式训练优化策略与评估指标
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">后一篇</strong>
+      <div class="article-nav-title">FSDP</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">分类</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0Infra/">强化学习Infra</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/05/">五月 2026</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2026/05/10/ray/">Ray</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/kuberay/">KubeRay</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/hello-world/">Hello World</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/">分布式训练 Infra：目录与说明</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/">训练基础</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2026 毁兮完<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

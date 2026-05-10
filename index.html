@@ -221,7 +221,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/ray/" data-id="cuid1Bqfr-eTLS-QaVAXojuSU" data-title="Ray" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/ray/" data-id="cuid75eSDSjTElhhJUG8mqcwG" data-title="Ray" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -421,7 +421,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/kuberay/" data-id="cuidnR2oVItB4thJEp_zU7kFt" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/kuberay/" data-id="cuidkd2gCUYUOdt_FIsWR_1Br" data-title="KubeRay" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -433,16 +433,12 @@
 
 
   
-    <article id="post-分布式训练7-综合优化实战" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+    <article id="post-hello-world" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
-    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%837-%E7%BB%BC%E5%90%88%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:44:48.335Z" itemprop="datePublished">2026-05-10</time>
+    <a href="/2026/05/10/hello-world/" class="article-date">
+  <time class="dt-published" datetime="2026-05-10T15:31:32.459Z" itemprop="datePublished">2026-05-10</time>
 </a>
     
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a>
-  </div>
-
   </div>
   <div class="article-inner">
     
@@ -451,7 +447,7 @@
         
   
     <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%837-%E7%BB%BC%E5%90%88%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98/">分布式训练综合优化实战</a>
+      <a class="p-name article-title" href="/2026/05/10/hello-world/">Hello World</a>
     </h1>
   
 
@@ -459,54 +455,20 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="分布式训练综合优化实战"><a href="#分布式训练综合优化实战" class="headerlink" title="分布式训练综合优化实战"></a>分布式训练综合优化实战</h1><p>本文将讲述几个具体模型的优化实战</p>
-<h2 id="环境说明"><a href="#环境说明" class="headerlink" title="环境说明"></a>环境说明</h2><p>使用AutoDL平台<br>框架：FSDP<br>硬件：5090 x 2（32GB×2）</p>
-<h2 id="性能指标"><a href="#性能指标" class="headerlink" title="性能指标"></a>性能指标</h2><p>tokens/s：每秒处理的 token 总数（双卡合计），直接反映训练吞吐。batch 越大、通信开销占比越小，tokens/s越高。<br>不选择 MFU 的原因：MFU 需要精确的理论 TFLOPS 和 FLOPs 乘数，这两者在实际环境中难以准确获取（sparse vs dense tensor core、模型架构差异等），算出来的值容易失真。tokens/s 是直接实测值，简单可靠。</p>
-<h2 id="Llama3-8B优化实战"><a href="#Llama3-8B优化实战" class="headerlink" title="Llama3-8B优化实战"></a>Llama3-8B优化实战</h2><h3 id="模型分析"><a href="#模型分析" class="headerlink" title="模型分析"></a>模型分析</h3><p>Llama3-8B，依据之前的显存账单计算公式：8*16 = 128 GiB<br>显存：32GB×2，显然存不下来。</p>
-<h3 id="第一阶段：能跑起来"><a href="#第一阶段：能跑起来" class="headerlink" title="第一阶段：能跑起来"></a>第一阶段：能跑起来</h3><p>初始状态：<br>BF16 + FSDP 全分片 + AdamW，FSDP 将 P+G+O 均分到 2 卡</p>
-<p>核心瓶颈：<br>理论每卡约 64 GiB，但实际训练时 forward/backward 还需要临时显存（激活值、通信 buffer 等），因此在 optimizer.step() 之前就已经 OOM。</p>
-<p>解决方法：<br>CPU offload</p>
-<p>实测数据：<br>开启 CPU offload 后 P 和 O 搬到 CPU，GPU主要承担计算，峰值降到 15.5GiB。</p>
-<p>系统资源利用率（mb=1, offload=true）：</p>
-<p>┌──────────────┬──────────┐<br>│     指标     │   数值   │<br>├──────────────┼──────────┤<br>│ GPU 利用率   │ ~54%     │<br>│ CPU 利用率   │ ~20%     │<br>│ 内存占用     │ ~17%     │<br>└──────────────┴──────────┘</p>
-<p>GPU 利用率仅 54%，说明大量时间花在 CPU↔GPU 数据搬运上，GPU 处于等待状态。这也是后续优化的空间所在。</p>
-<p><img src="images/8b_utilization.png" alt="8B 基线资源利用率"></p>
-<h3 id="第二阶段：性能优化调试"><a href="#第二阶段：性能优化调试" class="headerlink" title="第二阶段：性能优化调试"></a>第二阶段：性能优化调试</h3><p>方法：抬 throughput（固定 seq=512, offload=true）</p>
-<p>在 offload 约束下扫 micro-batch：</p>
-<p>┌─────────────┬──────────┬──────────┬──────┐<br>│ micro_batch │ tokens/s │ 峰值显存 │ 结果 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 1           │ ~165     │ 15.5 GiB │ 基线 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 2           │ ~307     │ 15.7 GiB │      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 4           │ ~584     │ 19.3 GiB │      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 6           │ ~875     │ 27.2 GiB │      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 7           │ —        │ —        │ OOM  │<br>└─────────────┴──────────┴──────────┴──────┘</p>
-<p>从 mb=1 到 mb=6，throughput 提升约 5.3 倍。但 mb=7 时显存触顶（27.2 GiB 已接近 32GB 上限，加上通信 buffer 就 OOM了）。</p>
-<p>图解（tokens/s 与显存随 mb 变化）：</p>
-<p><img src="images/8b_mb_sweep_offload.png" alt="8B mb sweep - 低区间"></p>
-<p><img src="images/8b_mb_sweep_high.png" alt="8B mb sweep - 高区间"></p>
-<p>随着 mb 增大，tokens/s 近线性增长，显存也同步上升。mb 越大，每次 GPU 计算量越充分，通信开销占比越小，吞吐效率越高。</p>
-<h3 id="第三阶段：用-AC-性能优化"><a href="#第三阶段：用-AC-性能优化" class="headerlink" title="第三阶段：用 AC 性能优化"></a>第三阶段：用 AC 性能优化</h3><p>mb 上不去，尝试 activation checkpointing + 降低 seq_len 换显存，再抬 mb：</p>
-<p>┌────────────────┬─────────────┬──────────┬──────────┐<br>│      配置      │ micro_batch │ tokens/s │ 峰值显存 │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq=512, 无 AC │ mb=6        │ ~875     │ 27.2 GiB │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq=512, 无 AC │ mb=7        │ —        │ OOM      │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq=448, 有 AC │ mb=6        │ ~801     │ 16.0 GiB │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq=448, 有 AC │ mb=7        │ ~936     │ 16.1 GiB │<br>├────────────────┼─────────────┼──────────┼──────────┤<br>│ seq=448, 有 AC │ mb=8        │ ~1068    │ 16.2 GiB │<br>└────────────────┴─────────────┴──────────┴──────────┘</p>
-<p>AC 把激活值从 776MB 降到 264MB，省出来的显存刚好够抬一步 mb。最终 seq=448 + AC + mb=8 达到 &gt;1000 tok/s。</p>
-<p><img src="images/8b_ac_experiment.png" alt="8B AC 实验（seq=448, gradient_checkpointing）"></p>
-<p>AC 牺牲了少量 throughput（以计算换显存），但换来了 mb 的提升空间，最终综合吞吐反而更高。</p>
-<h3 id="总结"><a href="#总结" class="headerlink" title="总结"></a>总结</h3><p>8B 在双卡 32GB 上的优化路径：</p>
-<p>OOM → offload（能跑）→ 扫 mb（5.3x）→ 加 AC（突破 mb 瓶颈，&gt;1000 tok/s）</p>
-<p>瓶颈变化：显存不够 → offload 后通信/CPU 成为瓶颈 → AC 省显存后继续抬 batch</p>
-<p>全流程 tokens/s 演进：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">165 → 584 → 875 → 1068</span><br><span class="line"> │      │      │      │</span><br><span class="line">offload mb=4  mb=6  AC+mb=8</span><br><span class="line">(能跑)  (3.5x) (5.3x) (最终)</span><br></pre></td></tr></table></figure>
-<h2 id="Qwen-3B优化实战"><a href="#Qwen-3B优化实战" class="headerlink" title="Qwen-3B优化实战"></a>Qwen-3B优化实战</h2><h3 id="模型分析-1"><a href="#模型分析-1" class="headerlink" title="模型分析"></a>模型分析</h3><p>Qwen2.5-3B，BF16 + AdamW。</p>
-<p>与 8B 的核心差异：3B 的 P+G+O 在双卡 no_shard（DDP）模式下可以直接放下（基线峰值 ~27 GiB），不需要 CPU offload。8B是”在显存夹缝里求生”，3B 是”显存充裕，优化重点在算子层面”。</p>
-<h3 id="第一阶段：基线跑通"><a href="#第一阶段：基线跑通" class="headerlink" title="第一阶段：基线跑通"></a>第一阶段：基线跑通</h3><p>配置：no_shard + sdpa + fused_adam + tf32，offload=false</p>
-<p>直接跑通，无需 offload。基线：mb=1, seq=512，~1734 tok/s，峰值 26.75 GiB。</p>
-<h3 id="第二阶段：扫-micro-batch-提吞吐"><a href="#第二阶段：扫-micro-batch-提吞吐" class="headerlink" title="第二阶段：扫 micro-batch 提吞吐"></a>第二阶段：扫 micro-batch 提吞吐</h3><p>┌─────────────┬──────────┬──────────┬──────┐<br>│ micro_batch │ tokens/s │ 峰值显存 │ 结果 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 1           │ ~1734    │ 26.75 GiB│ 基线 │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ 2           │ ~3172    │ 29.85 GiB│      │<br>├─────────────┼──────────┼──────────┼──────┤<br>│ ≥4          │ —        │ —        │ OOM  │<br>└─────────────┴──────────┴──────────┴──────┘</p>
-<p>mb=1→2：throughput 提升 ~1.8x，显存增加 ~3 GiB。mb=4 即 OOM，3B 虽然不需要 offload，但单卡 32GB 放下完整模型后剩余空间有限，mb 上限很低。</p>
-<p>图解（tokens/s 随 mb 变化）：</p>
-<p><img src="images/3b_mb_sweep.png" alt="3B mb sweep"></p>
-<h3 id="与-8B-优化思路对比"><a href="#与-8B-优化思路对比" class="headerlink" title="与 8B 优化思路对比"></a>与 8B 优化思路对比</h3><p>┌────────────────┬───────────────────┬───────────────────┐<br>│     维度       │  8B（双卡32GB）   │  3B（双卡32GB）   │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 初始状态       │ OOM               │ 直接能跑          │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 是否需要 offload│ 必须              │ 不需要            │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 优化路径       │ offload→扫mb→AC   │ 直接扫mb          │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 最高 tokens/s  │ ~1068             │ ~3172             │<br>├────────────────┼───────────────────┼───────────────────┤<br>│ 瓶颈变化       │ 显存→CPU通信→显存 │ 显存（mb上限）    │<br>└────────────────┴───────────────────┴───────────────────┘</p>
-<h3 id="总结-1"><a href="#总结-1" class="headerlink" title="总结"></a>总结</h3><p>3B 优化路径：直接跑 → 扫 mb（~1.8x）。</p>
-<p>全流程 tokens/s 演进：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">1734 → 3172</span><br><span class="line"> │      │</span><br><span class="line">基线   mb=2</span><br><span class="line">(mb=1) (1.8x)</span><br></pre></td></tr></table></figure>
-<p>相比 8B 需要多步（offload → 扫mb → AC → 调seq），3B 只需一步就触到天花板。原因很简单：显存够用，不需要 offload 和 AC 这类”以XX换显存”的手段，但 mb 上限仍然受限于激活值显存（no_shard 下每卡放完整模型，剩余空间有限）。要继续提吞吐，需要从算子层面入手（torch.compile、FlashAttention），但这些在当前环境下存在兼容性问题。</p>
+        <p>Welcome to <a target="_blank" rel="noopener" href="https://hexo.io/">Hexo</a>! This is your very first post. Check <a target="_blank" rel="noopener" href="https://hexo.io/docs/">documentation</a> for more info. If you get any problems when using Hexo, you can find the answer in <a target="_blank" rel="noopener" href="https://hexo.io/docs/troubleshooting.html">troubleshooting</a> or you can ask me on <a target="_blank" rel="noopener" href="https://github.com/hexojs/hexo/issues">GitHub</a>.</p>
+<h2 id="Quick-Start"><a href="#Quick-Start" class="headerlink" title="Quick Start"></a>Quick Start</h2><h3 id="Create-a-new-post"><a href="#Create-a-new-post" class="headerlink" title="Create a new post"></a>Create a new post</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo new <span class="string">&quot;My New Post&quot;</span></span><br></pre></td></tr></table></figure>
+<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/writing.html">Writing</a></p>
+<h3 id="Run-server"><a href="#Run-server" class="headerlink" title="Run server"></a>Run server</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo server</span><br></pre></td></tr></table></figure>
+<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/server.html">Server</a></p>
+<h3 id="Generate-static-files"><a href="#Generate-static-files" class="headerlink" title="Generate static files"></a>Generate static files</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo generate</span><br></pre></td></tr></table></figure>
+<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/generating.html">Generating</a></p>
+<h3 id="Deploy-to-remote-sites"><a href="#Deploy-to-remote-sites" class="headerlink" title="Deploy to remote sites"></a>Deploy to remote sites</h3><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ hexo deploy</span><br></pre></td></tr></table></figure>
+<p>More info: <a target="_blank" rel="noopener" href="https://hexo.io/docs/one-command-deployment.html">Deployment</a></p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%837-%E7%BB%BC%E5%90%88%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98/" data-id="cuid7GDmWbC_s6p0bWPZaBMHj" data-title="分布式训练综合优化实战" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/hello-world/" data-id="cuid_T1vwLP5gGDd-FGAMGVXN" data-title="Hello World" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -518,10 +480,10 @@
 
 
   
-    <article id="post-分布式训练6-Megatron与3D并行" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+    <article id="post-分布式训练0-目录" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
-    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:44:45.001Z" itemprop="datePublished">2026-05-10</time>
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" class="article-date">
+  <time class="dt-published" datetime="2026-05-10T00:00:00.000Z" itemprop="datePublished">2026-05-10</time>
 </a>
     
   <div class="article-category">
@@ -536,7 +498,7 @@
         
   
     <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/">Megatron 与 3D 并行</a>
+      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/">分布式训练 Infra：目录与说明</a>
     </h1>
   
 
@@ -544,74 +506,28 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="Megatron-与-3D-并行"><a href="#Megatron-与-3D-并行" class="headerlink" title="Megatron 与 3D 并行"></a>Megatron 与 3D 并行</h1><p>之前讲述了ZeRO-123,和FSDP。但是前述的方法在处理特别大模型的时候还是会存在一些问题，前述方法本质还是数据并行，每张卡会计算完整的模型。当模型达到一定程度时，ZeRO-3的都要All-Gather参数值，通信量大，效率较低。因此可以换一个思路，直接切模型本身，也就是TP和PP。</p>
-<h2 id="1-TP-Tensor-Parallelism-——-张量并行"><a href="#1-TP-Tensor-Parallelism-——-张量并行" class="headerlink" title="1. TP (Tensor Parallelism) —— 张量并行"></a>1. TP (Tensor Parallelism) —— 张量并行</h2><h3 id="1-1-核心逻辑：把矩阵乘法拆开"><a href="#1-1-核心逻辑：把矩阵乘法拆开" class="headerlink" title="1.1 核心逻辑：把矩阵乘法拆开"></a>1.1 核心逻辑：把矩阵乘法拆开</h3><p>TP 不是在层与层之间切分，而是在 <strong>层内部</strong> 把矩阵乘法（Matrix Multiplication）拆分到多张卡上并行计算。</p>
-<h4 id="1-MLP-层的切分（纵切-横切）"><a href="#1-MLP-层的切分（纵切-横切）" class="headerlink" title="1. MLP 层的切分（纵切 + 横切）"></a>1. MLP 层的切分（纵切 + 横切）</h4><p>这是 Megatron 最精妙的地方，为了尽量减少通信，它采用了“两层一组”的策略：</p>
-<ul>
-<li><strong>第一层（纵切/Column Parallel）</strong>：把权重矩阵 $W$ 按列切开。每张卡算出输出的一部分。</li>
-<li><strong>第二层（横切/Row Parallel）</strong>：把权重矩阵 $W’$ 按行切开。每张卡直接拿上一层的局部输出进行计算。</li>
-<li><strong>为什么这么做？</strong>：连续两个线性层如果用同一种切法，中间就必须通信。只有纵切+横切的组合能让第一层的输出直接作为第二层的输入，实现两层之间零通信。这是由矩阵运算的性质决定的，不是优化策略，而是唯一可行的方式</li>
+        <h1 id="分布式训练-Infra：目录与说明"><a href="#分布式训练-Infra：目录与说明" class="headerlink" title="分布式训练 Infra：目录与说明"></a>分布式训练 Infra：目录与说明</h1><h2 id="为什么要写这一组文章"><a href="#为什么要写这一组文章" class="headerlink" title="为什么要写这一组文章"></a>为什么要写这一组文章</h2><p>大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，<strong>分布式训练</strong>已经成为当前大模型训练的默认形态：多卡、多机协同，在<strong>通信、计算、存储</strong>三条线上同时做权衡。</p>
+<p>工程上常见的并行与显存优化手段包括：<strong>ZeRO-1/2/3</strong>（常与 <strong>DeepSpeed</strong> 一起出现）、<strong>PyTorch FSDP</strong>，以及更大规模时常用的 <strong>Megatron 系 3D 并行</strong>（数据并行 / 张量并行 / 流水并行等组合）。</p>
+<h2 id="本文聚焦：Infra-侧关心什么"><a href="#本文聚焦：Infra-侧关心什么" class="headerlink" title="本文聚焦：Infra 侧关心什么"></a>本文聚焦：Infra 侧关心什么</h2><p>分布式训练 <strong>Infra</strong> 更关注两件事：<strong>训得快</strong>、<strong>训得稳</strong>。稳定性本质上也是为效率服务——少挂、少重跑，等价于提高有效训练时间。前提始终是：<strong>在既定硬件与网络条件下</strong>，把算力和显存吃满、吃稳。</p>
+<p>日常排查时，下面两类指标应放在核心位置：<strong>GPU 利用率</strong>（是否真的在算）、<strong>显存水位与峰值</strong>（是否触顶、是否碎片严重）。更细的吞吐、步时、MFU 等，放在「优化与评估」章节里展开。</p>
+<h2 id="阅读方式"><a href="#阅读方式" class="headerlink" title="阅读方式"></a>阅读方式</h2><ul>
+<li><strong>第 1～3 章</strong>：偏基础梳理，把概念和口径对齐，写作上会多举例、多做解释。</li>
+<li><strong>第 4～7 章</strong>：进阶重点章节，每一章采用「<strong>30 秒结论 + 展开 + 一条实践或数据</strong>」的结构，方便快速抓住核心要点。</li>
 </ul>
-<p>实际例子：<br>X = [x1 x2 …]<br>W1 = [A B]<br>W2 = [C]<br>     [D]<br>X <em> W1 </em> W2 = [XA XB] <em> W2 = [XAC+XBD]<br>卡1: X </em> W1_Left <em> W2_top= [XAC]<br>卡2: X </em> W1_Right * W2_bottom = [XBD]<br>Reduce求和: [XAC+XBD]</p>
-<p>因此（纵切 + 横切）需要进行一次通信</p>
-<h4 id="2-Attention-层的切分"><a href="#2-Attention-层的切分" class="headerlink" title="2. Attention 层的切分"></a>2. Attention 层的切分</h4><ul>
-<li>同样利用了多头注意力（Multi-Head Attention）的特性，把不同的 <strong>Head</strong> 分给不同的显卡。</li>
-</ul>
-<h3 id="1-2-物理直觉"><a href="#1-2-物理直觉" class="headerlink" title="1.2 物理直觉"></a>1.2 物理直觉</h3><h4 id="1-通信频率极高"><a href="#1-通信频率极高" class="headerlink" title="1. 通信频率极高"></a>1. 通信频率极高</h4><ul>
-<li><strong>精确对比</strong>：<ul>
-<li><strong>DP</strong>：一轮迭代（Step）仅在反向传播结束时通信 <strong>1 次</strong>（同步梯度）。</li>
-<li><strong>TP</strong>：在<strong>每个 Transformer Block</strong> 的前向和反向过程中都要通信。以 32 层模型为例，一轮迭代需要进行 <strong>128 次</strong> All-Reduce 通信。</li>
-</ul>
-</li>
-<li><strong>结论</strong>：TP 的通信频率比 DP 高出两个数量级。这决定了 TP 必须部署在具有极高带宽的 <strong>机内 NVLink</strong> 环境下，跨机通信会成为严重的性能瓶颈。</li>
-</ul>
-<h4 id="2-权重格式（Megatron-格式）"><a href="#2-权重格式（Megatron-格式）" class="headerlink" title="2. 权重格式（Megatron 格式）"></a>2. 权重格式（Megatron 格式）</h4><ul>
-<li><strong>现象</strong>：你会发现 Megatron 的模型文件（Checkpoint）和 HuggingFace 的不一样。</li>
-<li><strong>原因</strong>：因为 TP 把权重矩阵物理上切碎了存到了不同的卡上。</li>
-<li><strong>实战</strong>：在平台上部署时，经常需要一个 <code>convert_checkpoint.py</code> 脚本，把 HF 格式转换成 Megatron 格式（按 TP 维度切分），或者反过来。</li>
-</ul>
-<h4 id="3-显存收益"><a href="#3-显存收益" class="headerlink" title="3. 显存收益"></a>3. 显存收益</h4><ul>
-<li>TP 不仅切分了参数 $P$，还切分了 <strong>激活值 (A)</strong>。</li>
-<li><strong>结论</strong>：如果你遇到了长文本导致的激活值 OOM，增加 TP 维度通常比增加 DP 维度更有效。<br>这也是TP相较于ZeRO-3的优势，同时“切分了”激活值。</li>
-</ul>
-<h2 id="PP"><a href="#PP" class="headerlink" title="PP"></a>PP</h2><p>PP 就是按层切模型，不同 GPU 负责不同的层，数据像流水线一样依次穿过各卡。<br>跟 TP 的区别：</p>
-<ul>
-<li>TP：每张卡算同一层的不同部分，算完要通信合并</li>
-<li>PP：每张卡算不同的层，算完把激活值传给下一张卡</li>
-</ul>
-<p>简单示例，一个 4 层的模型切成 2 个 stage：<br>GPU0: Layer0 → Layer1 → 激活值传给GPU1<br>GPU1: Layer2 → Layer3 → 得到最终输出</p>
-<p>通信特点：<br>1、计算之间有明显的先后顺序，因此PP会有气泡问题。<br>2、相邻卡之间为点对点通信。因此 PP可以跨机使用（InfiniBand 就行），这也是3D 并行中 PP 放在中间层、TP 必须在最内层的原因</p>
-<p>气泡问题：<br>时间 →<br>GPU0: [ F1 ] [ F2 ] [ F3 ] [    ] [    ] [    ] [    ] [    ] [    ] [ B1 ] [ B2 ] [ B3 ]<br>GPU1: [    ] [ F1 ] [ F2 ] [ F3 ] [    ] [    ] [    ] [    ] [ B1 ] [ B2 ] [ B3 ] [    ]<br>GPU2: [    ] [    ] [ F1 ] [ F2 ] [ F3 ] [    ] [    ] [ B1 ] [ B2 ] [ B3 ] [    ] [    ]<br>GPU3: [    ] [    ] [    ] [ F1 ] [ F2 ] [ F3 ] [ B1 ] [ B2 ] [ B3 ] [    ] [    ] [    ] </p>
-<p>图解说明：<br>其中F1、F2、F3 就是第 1、2、3 个 micro-batch 的前向传播。<br>B1、B2、B3 就是micro-batch 的反向传播（注意：B1，B2，B3的顺序可以调整）<br>第一列是第一时刻，GPU0开始计算F1。<br>第二时刻，GPU0开始计算F2。GPU1收到GPU0的F1数据计算的激活值，开始计算。<br>当GPU0把F1，F2，F3都计算完毕后，便暂时无可计算数据。<br>当GPU3算完F3数据后，开始进行反向传播。逐个计算B1，B2，B3。<br>在反向传播过程中又会产生新的气泡。</p>
-<p>解决方法：1F1B<br>核心思路：前向和反向交替进行，把气泡挤到首尾两端。<br>单卡示意图：<br>GPU0: [F1 F2 F3] [B1 F4] [B2 F5] [B3 F6] [B4 F7] [B5 F8] [B6 B7 B8]<br>                ^^^^^^^^  ^^^^^^^^  ^^^^^^^^  ^^^^^^^^  ^^^^^^^^<br>                稳态阶段：1个反向 + 1个前向，交替进行，几乎无气泡<br>分三个阶段：</p>
-<ol>
-<li>预热：先推几个前向把流水线填满（气泡在这） [F1 F2 F3]</li>
-<li>稳态：每做 1 个前向紧接着做 1 个反向（几乎没有气泡） [B1 F4] [B2 F5] [B3 F6] [B4 F7] [B5 F8]</li>
-<li>冷却：剩余的反向传播收尾（气泡在这） [B6 B7 B8]</li>
+<h2 id="正文计划（章节列表）"><a href="#正文计划（章节列表）" class="headerlink" title="正文计划（章节列表）"></a>正文计划（章节列表）</h2><ol>
+<li><strong>训练基础知识</strong>：前向 / 反向、batch、梯度同步在分布式里意味着什么；为后文「为什么要切模型 / 切优化器状态」打底。</li>
+<li><strong>大模型与显存物理边界</strong>：参数量与精度下的显存账单（参数、梯度、优化器状态、激活等），单卡为何装不下、OOM 从哪里来。</li>
+<li><strong>大模型优化与评估指标</strong>：常用优化手段的分类；除 GPU / 显存利用率外，补充步时、吞吐、有效算力等如何一起看问题。</li>
+<li><strong>ZeRO-1/2/3、DeepSpeed 与实战</strong>：各阶段切的是什么、多付多少通信代价；结合可跑的最小示例或笔记。</li>
+<li><strong>FSDP 与实战</strong>：与 ZeRO 思路的对照、适用场景；对接现有 FSDP 环境与实验记录。</li>
+<li><strong>Megatron 与 3D 并行（实战或概念深化）</strong>：何时从 FSDP / ZeRO 走向 TP/PP/组合并行；若线上以用户脚本为主，本章以「原理 + 边界 + 平台侧关注点」为主。</li>
+<li><strong>综合优化实战</strong>：把通信与计算 overlap、混合精度、梯度累积、激活重算等放在同一张「组合拳」里，用至少一个真实瓶颈案例收束。</li>
 </ol>
-<p>两卡示例：<br>GPU0: [F1] [F2] [  ] [B1] [F3] [B2] [F4] [B3] [  ] [B4]<br>GPU1: [  ] [F1] [B1] [F2] [B2] [F3] [B3] [F4] [B4] [  ]</p>
-<p>气泡只在首尾，中间的稳态阶段 GPU 基本没有空闲。micro-batch 越多，首尾气泡占比越小。</p>
-<h2 id="3D并行"><a href="#3D并行" class="headerlink" title="3D并行"></a>3D并行</h2><p>3D 并行就是把 TP、PP、DP 三种并行嵌套套在一起用，同时训练一个超大模型。需要合理配置这三者的值。</p>
-<p>嵌套顺序：<br>最外层：DP/ZeRO（跨机，All-Reduce，通信频率最低）<br>└─ 中间层：PP（跨机，相邻卡点对点，通信频率中等）<br>        └─ 最内层：TP（单机内，NVLink，通信频率最高）</p>
-<p>配置原则：<br>总 GPU 数 = TP × PP × DP，三个值相乘等于你拥有的卡数<br>TP 通信最密集，因此尽量在一台机子内，所以最大不超过8<br>TP 和 PP 能小就小，保证切分后的参数能存到最少的GPU内，剩下的全给 DP<br>TP 和 PP 两者的具体取值根据实际情况确定</p>
-<p>举例，假设有 64 张卡（8 台机器，每台 8 卡）：<br>DP=4, PP=2, TP=8<br>总共需要：4 × 2 × 8 = 64 张卡<br>每份数据并行的副本 = PP=2 × TP=8 = 16 张卡</p>
-<h2 id="Megatron"><a href="#Megatron" class="headerlink" title="Megatron"></a>Megatron</h2><p>就是使用3D并行训练的框架</p>
-<p>1、准备数据集<br>Megatron 的数据格式跟 HuggingFace 不同。HuggingFace 通常读 JSONL 或 parquet，Megatron 要求转成二进制格式（numpy memory-mapped 文件）。</p>
-<p>原因是：大模型训练时数据量很大（TB 级），JSONL 解析太慢，转成二进制后可以直接内存映射读取，IO 效率高很多。</p>
-<p>Megatron 提供了转换脚本，类似：<br>python tools/preprocess_data.py —input my_data.jsonl —output_prefix my_data —tokenizer-type GPT2BPETokenizer<br>产出两个文件：.bin（tokenized 数据）和 .idx（索引文件）。</p>
-<p>2、准备模型与模型转换<br>Megatron 的权重存储方式跟 HuggingFace 不一样。HF 是直接存完整的权重矩阵，Megatron 因为要做 TP切分，权重是按切分方式存储的。</p>
-<p>所以如果要用 HF 上预训练好的模型（比如 LLaMA、Qwen），需要做一次格式转换。Megatron 提供了转换脚本，把 HF 的pytorch_model.bin 转成 Megatron 能识别的 checkpoint。</p>
-<p>3、安装环境<br>最优：有一个已经集成的镜像。否则就只能自己做镜像了。<br>找一个合适的基础镜像，如NVIDIA 官方的 PyTorch 容器（包含 CUDA、NCCL 等底层库）<br>从 GitHub 拉取 Megatron-LM，pip 安装依赖（主要是版本兼容的问题——CUDA、PyTorch、NCCL、Megatron）<br>每个库安装完后，均需要做验证<br>过程中根据出现的bug进行修复。还有Megatron-LM能够找到一个稳定的commit记录，避免其更新产生依赖不兼容匹配。</p>
-<p>4、编写训练程序<br>略。因为框架将大部分内容都已经封装了。而且往往会使用现成的基模型与数据集，只需在配置参数里配置好即可开始训练。</p>
-<p>5、配置参数并运行启动脚本<br>Megatron 的参数主要通过命令行参数传入：</p>
-<p>torchrun —nproc_per_node=8 pretrain_gpt.py \<br>  —tensor-model-parallel-size 8 \<br>  —pipeline-model-parallel-size 2 \<br>  —num-layers 32 \<br>  —hidden-size 4096 \<br>  —num-attention-heads 32 \<br>  —seq-length 2048 \<br>  —micro-batch-size 4 \<br>  —global-batch-size 512 \<br>  —train-iters 500000 \<br>  —data-path my_data_text_document</p>
-<p>其中 tensor-model-parallel-size 和 pipeline-model-parallel-size 就是控制 TP 和 PP<br>的，设好这两个值，框架自动处理切分和通信。多机多卡时用 torchrun 的 —nnodes 参数指定机器数。</p>
-<p>实际可以将上述启动命令与配置参数写到启动脚本里，然后直接运行。</p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/" data-id="cuidnTYOpwNLUCblSMLSWpZCb" data-title="Megatron 与 3D 并行" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" data-id="cuidy2EifttGLtRYgdB6wrKDy" data-title="分布式训练 Infra：目录与说明" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -623,10 +539,10 @@
 
 
   
-    <article id="post-分布式训练5-FSDP" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+    <article id="post-分布式训练1-训练基础知识" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
-    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:44:41.157Z" itemprop="datePublished">2026-05-10</time>
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" class="article-date">
+  <time class="dt-published" datetime="2026-05-09T23:50:00.000Z" itemprop="datePublished">2026-05-10</time>
 </a>
     
   <div class="article-category">
@@ -641,7 +557,7 @@
         
   
     <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/">FSDP</a>
+      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/">训练基础</a>
     </h1>
   
 
@@ -649,237 +565,309 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="FSDP"><a href="#FSDP" class="headerlink" title="FSDP"></a>FSDP</h1><p>ZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。</p>
-<h2 id="FSDP核心机制"><a href="#FSDP核心机制" class="headerlink" title="FSDP核心机制"></a>FSDP核心机制</h2><p>FSDP = Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片与重组机制，它将模型参数、梯度和优化器状态均匀分布在所有 GPU 上。本质是<strong>“用通讯换显存”</strong>。</p>
-<p>FSDP的分片原理：<br>通过 auto_wrap_policy 标记需要分片的层（通常是 Transformer Block），将每层的参数展平后均匀切分到各卡上。未被标记的层同样展平切分。<br>Transformer模型的层结构规整，适合按层做统一的分片处理。</p>
-<p>FSDP的重组原理：<br>先将未被标记的层 All-Gather 汇聚完整，然后逐层 All-Gather标记层的参数进行计算，算完立即丢弃，保证任意时刻只有一层是完整的</p>
-<p>Qwen2.5-8B举例<br>[Embedding] [decoder] … [decoder] [RMSNorm] [LM Head]<br>                32<em>decoder layer<br>分片：(2卡)<br>GPU0：[(Embedding+RMSNorm+LM Head)(1/2)] [decoder(1/2)] … [decoder(1/2)]<br>                                                32</em>decoder layer<br>GPU1：[(Embedding+RMSNorm+LM Head)(1/2)] [decoder(1/2)] … [decoder(1/2)]<br>                                                32<em>decoder layer<br>重组：<br>首先汇聚未被标记的部分<br>GPU0：[Embedding] [decoder(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第一层<br>GPU0：[Embedding] [decoder1(完整)] [decoder2(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(完整)] [decoder2(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第二层<br>GPU0：[Embedding] [decoder1(1/2)] [decoder2(完整)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1/2)] [decoder2(完整)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>。。。<br>汇聚最后一层<br>GPU0：[Embedding] [decoder1(1/2)] [decoder2(1/2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1/2)] [decoder2(1/2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32*decoder layer<br>最后恢复成分片状态。</p>
-<p>整体静态参数最高水位：(1/N)(P+G+O)</p>
-<p>代码示例：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    sharding_strategy=ShardingStrategy.FULL_SHARD,</span><br><span class="line">    auto_wrap_policy=transformer_auto_wrap_policy,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    device_id=torch.cuda.current_device(),</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">核心就三个参数：</span><br><span class="line">- sharding_strategy：分片策略（FULL_SHARD = ZeRO-3 级别）</span><br><span class="line">- auto_wrap_policy：哪些层做分片</span><br><span class="line">- mixed_precision：混合精度</span><br></pre></td></tr></table></figure></p>
-<p>FSDP与ZeRO-3对比</p>
-<ul>
-<li>FSDP 支持选择性分片，ZeRO-3 全切</li>
-<li>ZeRO-3 有 ZeRO-Infinity（NVMe offload），FSDP 只有 CPU offload</li>
+        <h1 id="训练基础"><a href="#训练基础" class="headerlink" title="训练基础"></a>训练基础</h1><p>本文只考虑神经网络的训练</p>
+<h2 id="1-神经网络的物理本质（Infra-视角）"><a href="#1-神经网络的物理本质（Infra-视角）" class="headerlink" title="1. 神经网络的物理本质（Infra 视角）"></a>1. 神经网络的物理本质（Infra 视角）</h2><ul>
+<li><strong>本质</strong>：一系列张量（Tensor）的连续变换。数据以向量形式输入，经过层层矩阵运算，最终得到输出。</li>
+<li><strong>MLP 示例</strong>：最基础的结构 y = Wx + b。<ul>
+<li><strong>参数 (P)</strong>：即权重 $W$。Infra 侧关注其存储分布（单卡还是多卡）。</li>
+<li><strong>激活值 (A)</strong>：计算过程中产生的中间变量。Infra 侧关注其显存占用，是前向传播的水位线。</li>
+<li><strong>算子</strong>：如激活函数、Softmax。关注其计算开销与对显存碎片的贡献。</li>
 </ul>
-<h2 id="FSDP优化策略"><a href="#FSDP优化策略" class="headerlink" title="FSDP优化策略"></a>FSDP优化策略</h2><h3 id="CPU-offload"><a href="#CPU-offload" class="headerlink" title="CPU offload"></a>CPU offload</h3><p>问题：当模型较大时，在FSDP分片后，可能仍会出现(1/N)(P+G+O)在一张卡上放不下的情况。以 8B 模型 + 双卡 BF16 + AdamW 为例，单卡上 Adam 状态约 32GiB，加上参数和梯度，直接 OOM。</p>
-<p>解决方法：CPU offload策略。（核心是让O一直存储在CPU侧，O的比重最大，能减轻GPU显存的压力）<br>P：前向阶段：CPU——》GPU（CPU侧复制一份到GPU侧，算完会丢弃），反向阶段：CPU——》GPU（CPU侧复制一份到GPU侧，算完会丢弃）<br>G：反向阶段：在GPU生成。Optimizer step：GPU——》CPU（直接移动）<br>O：一直在CPU侧</p>
-<p>代价：CPU↔GPU 数据搬运有延迟，训练速度会下降</p>
-<p>启用方法：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import CPUOffload</span><br><span class="line"></span><br><span class="line">FSDP(</span><br><span class="line">    model,</span><br><span class="line">    cpu_offload=CPUOffload(offload_params=True),</span><br><span class="line">    ...</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-<p>实测数据（8B + 双卡 5090 32G）：</p>
-<p>┌──────────────┬───────────────┬─────────────────────────┐<br>│     配置     │ GPU 峰值显存  │          结果           │<br>├──────────────┼───────────────┼─────────────────────────┤<br>│ 无 Offload   │ ~48GiB（OOM） │ optim.step() 阶段爆显存 │<br>├──────────────┼───────────────┼─────────────────────────┤<br>│ 开启 Offload │ 15.51 GiB     │ 训练正常，50 步稳定     │<br>└──────────────┴───────────────┴─────────────────────────┘</p>
-<h3 id="Activation-Checkpointing"><a href="#Activation-Checkpointing" class="headerlink" title="Activation Checkpointing"></a>Activation Checkpointing</h3><p>问题：当激活值占用较大的场合，即使能存储P+G+O，但仍可能由于A导致OOM。</p>
-<p>解决方法：可以使用Activation Checkpointing方法。</p>
-<p>正常情况:前向传播会保存每一层的激活值，供反向传播使用。<br>Activation Checkpointing：不保存中间层的激活值，只保存该层的输入张量。反向传播到该层时，从保存的输入重新执行前向计算，得到所需的激活值。</p>
-<p>本质:以计算换显存。多花一遍前向计算的时间，省掉大量激活值的显存。</p>
-<p>代码实现：</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (</span><br><span class="line">    checkpoint_wrapper, CheckpointImpl, apply_activation_checkpointing</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 在 FSDP 包装之后应用</span><br><span class="line">apply_activation_checkpointing(</span><br><span class="line">    model,</span><br><span class="line">    checkpoint_wrapper_fn=functools.partial(</span><br><span class="line">        checkpoint_wrapper, checkpoint_impl=CheckpointImpl.NO_REENTRANT</span><br><span class="line">    ),</span><br><span class="line">    check_fn=lambda submodule: isinstance(submodule, TransformerBlock)</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
-<p>实测数据<br>256 层模型的实验：<br>┌─────────┬────────────┬──────────────────────────────────┐<br>│  模式   │ 激活值占用  │               说明               │<br>├─────────┼────────────┼──────────────────────────────────┤<br>│ 不开 AC │ 776.12 MB  │ 保存了所有中间层的激活值           │<br>├─────────┼────────────┼──────────────────────────────────┤<br>│ 开启 AC │ 264.12 MB  │ 只保存每层输入，中间状态全部丢弃    │<br>└─────────┴────────────┴──────────────────────────────────┘<br>激活值减少了约 66%。</p>
-<h3 id="混合精度"><a href="#混合精度" class="headerlink" title="混合精度"></a>混合精度</h3><p>为了加快计算速度，可以使用混合精度的方式来训练。参数在GPU以 BF16 存储（省显存），计算也用 BF16（GPU加速），优化器内部保留 FP32 主副本（用于更新P，保数值稳定）。计算用 BF16（快+省），更新用 FP32（稳），两者各取所长。<br>┌─────────────────┬──────────┬──────────────────────────────┐<br>│                 │   FP32   │       BF16（混合精度）        │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ P               │ 4 bytes  │ 2 bytes                      │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ G               │ 4 bytes  │ 2 bytes                      │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ O（优化器状态）  │ 8 bytes  │ 12 bytes（保留 FP32 主副本）  │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ 每参数总计       │ 16 bytes │ 16 bytes                     │<br>└─────────────────┴──────────┴──────────────────────────────┘<br>虽然整体P+G+O没有变化，但是（1）P 和 G 的显存占用减半，使用CPU offload的情况下，显存只会用到P+G，这时显存占用就变少了。（2）P 和 G 的显存占用减半，A的位数也会减半，那整体显存的占用也会变少。</p>
-<p>代码示例：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    。。。</span><br><span class="line">)</span><br></pre></td></tr></table></figure></p>
-
-      
-    </div>
-    <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuidL6gdCQZDdyMGD5a3rtfAH" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
-      
-      
-      
-    </footer>
-  </div>
-  
-</article>
-
-
-
-  
-    <article id="post-分布式训练4-ZeRO-123和deepspeed" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
-  <div class="article-meta">
-    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:44:35.989Z" itemprop="datePublished">2026-05-10</time>
-</a>
-    
-  <div class="article-category">
-    <a class="article-category-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a>
-  </div>
-
-  </div>
-  <div class="article-inner">
-    
-    
-      <header class="article-header">
-        
-  
-    <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/">ZeRO-123和Deepspeed</a>
-    </h1>
-  
-
-      </header>
-    
-    <div class="e-content article-entry" itemprop="articleBody">
-      
-        <h1 id="ZeRO-123和Deepspeed"><a href="#ZeRO-123和Deepspeed" class="headerlink" title="ZeRO-123和Deepspeed"></a>ZeRO-123和Deepspeed</h1><p>前面的章节讲述了大模型训练的实现策略与分布式场景的优化。本章节开始讲述其中一种实现策略，ZeRO-123与Deepspeed</p>
-<h2 id="1-ZeRO原理"><a href="#1-ZeRO原理" class="headerlink" title="1. ZeRO原理"></a>1. ZeRO原理</h2><p>主要就是训练过程中的P+G+O无法被存储在一张显卡上，因此将P，G，O分配到其他卡上。</p>
-<h2 id="2-DDP-原始方案"><a href="#2-DDP-原始方案" class="headerlink" title="2. DDP 原始方案"></a>2. DDP 原始方案</h2><p>ZeRO是在分布式训练基础上进行的，因此下述先简单讲讲分布式训练与单卡训练过程的不同点。<br>DDP就是最经典的分布式训练方案。</p>
-<p>DDP 训练过程中，每张卡上都会加载同一份 P，各自使用不同的数据进行训练。每张卡算出的梯度 G 不同，因此需要通过All-Reduce 对 G 求平均，确保所有卡拿到相同的全局梯度后再更新 P，从而保证各卡上的 P 始终一致。</p>
-<p>注意：这里是对G进行All-Reduce，而不是P。因为如果不对G求平均，使用不同的G不止更新出不同的P，还会更新出不同的O，这样的话，就要同步P和O了，而 O 的同步没有合理的公式。</p>
-<p>DDP 的流程：</p>
-<ol>
-<li>所有卡加载同一份 P，各自拿不同的数据</li>
-<li>前向 + 反向 → 算出各自的局部梯度 G（不同）</li>
-<li>All-Reduce 同步 G → 每张卡拿到全局平均梯度 G（相同）</li>
-<li>各卡用相同的 G 在本地更新 P → 更新后 P 自然相同</li>
-</ol>
-<h2 id="3-ZeRO-1"><a href="#3-ZeRO-1" class="headerlink" title="3. ZeRO-1"></a>3. ZeRO-1</h2><p>在 Adam 优化器中，<strong>O (优化器状态)</strong> 占比最大（12N，占静态显存的 75%）。ZeRO-1 发现 O 在前向和反向传播中完全不参与计算，仅在“参数更新”那一瞬间被访问。因此，将其均分到各卡上收益最高。</p>
-<p>核心流程（以 8 卡为例）</p>
-<ol>
-<li><strong>前向传播</strong>：水位 = $(P + (1/8)O) + A$<br> 相比于单卡训练，前向传播过程中，O只占用了1/8，对应自己负责的那部分优化器状态。并且当前步骤并未使用到O，所以只存储(1/8)O不会对该过程造成影响</li>
-<li><strong>反向传播</strong>：水位 = $(P + (1/8)O) + A + G$<br>同样当前步骤并未使用到O，所以只存储(1/8)O不会对该过程造成影响<br> 除此之外，A在反向传播过程中逐步释放（算完一层释放一层）。</li>
-<li><strong>Reduce-Scatter</strong>：水位 = $(P + (1/8)O) + (1/8)G$<br> 这步是ZeRO-1增加的步骤。<br> 首先ZeRO-1是在DP的基础上进行训练的，所以需要进行Reduce操作，每部分的梯度都需要求平均。<br> 然后由于每张卡仅存储了(1/8)O，仅能更新对应的(1/8)P，因此每张卡上仅需要对应的(1/8)G就能完成对应的更新操作，所以仅需要Reduce-Scatter操作，让每张卡处理对应的(1/8)G即可，不需要All-Reduce。</li>
-<li><strong>参数更新</strong>：水位：更新前 $(P + (1/8)O) + (1/8)G$，更新后 $((1/8)P + (1/8)O)$<br>由于每张卡只有(1/8)O，而切分策略保证了单卡上仅有的O能完成对应(1/8)P的更新，同时O也在同步更新。之后每张卡弃掉用不到的(7/8)P。<br>同时在算完P后，G也会被释放。</li>
-<li><strong>All-Gather</strong>：水位 = $P + (1/8)O$<br>这步是ZeRO-1增加的步骤。<br>为了后续快速的前向传播与后向传播计算，需要每张卡拥有完整的P，因此通过All-Gather将每张卡汇聚出完整的P</li>
-</ol>
-<p>ZeRO-1 核心流程 (以 8 卡为例，仅展示 GPU 0 视角)</p>
-<p>图例: ■ = 持有    □ = 空缺/已释放</p>
-<p>═══════════════════════════════════════════════════════════<br>阶段1: 前向传播                              [不用 O]<br>═══════════════════════════════════════════════════════════<br>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  A[■■■■]<br>        全量P          1/8 O         激活值堆积</p>
-<p>═══════════════════════════════════════════════════════════<br>阶段2: 反向传播                              [不用 O]<br>═══════════════════════════════════════════════════════════<br>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  G[■■■■■■■■]<br>        全量P          1/8 O         算出全量局部G<br>                        (一直没用上)    A 逐步释放中</p>
-<p>═══════════════════════════════════════════════════════════<br>阶段3: Reduce-Scatter    ← 8卡互相交换梯度并求平均 →<br>═══════════════════════════════════════════════════════════<br>        交换前: G[■■■■■■■■]  全量局部梯度<br>        交换后: G[■□□□□□□□]  只留自己负责的 1/8 全局梯度</p>
-<p>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  G[■□□□□□□□]<br>                                ^^^^^^^^^^^^<br>                                各卡取不同位置，凑起来就是完整G<br>GPU0:  P[■■■■■■■■]  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
-<p>═══════════════════════════════════════════════════════════<br>阶段4: 参数更新 (本地计算，无通信)<br>═══════════════════════════════════════════════════════════<br>        Adam: 用 1/8 G + 1/8 O → 更新 1/8 P，O 同步刷新</p>
-<pre><code>    更新前: P[■■■■■■■■]  O[■□□□□□□□]  G[■□□□□□□□]
-    更新后: P[■□□□□□□□]  O[■□□□□□□□]  G[□□□□□□□□]
-            丢弃7/8 P      (已刷新)      G释放
-</code></pre><p>═══════════════════════════════════════════════════════════<br>阶段5: All-Gather    ← 8卡互相交换更新后的 1/8 P →<br>═══════════════════════════════════════════════════════════<br>        交换前: P[■□□□□□□□]  每人只有自己的 1/8<br>        交换后: P[■■■■■■■■]  汇聚成全量新 P</p>
-<p>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]<br>        完整新P         1/8 O → 回到阶段1，开始下一轮</p>
-<p>多卡视角看 Reduce-Scatter 这一步会更直观：</p>
-<p>Reduce-Scatter: 8卡各持不同分片的 O，所以各取不同位置的 G</p>
-<p>GPU0:  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
-<p>横向拼起来 = 完整的 G 和 O，每张卡只做自己的那块更新</p>
-<h2 id="4-ZeRO-2"><a href="#4-ZeRO-2" class="headerlink" title="4. ZeRO-2"></a>4. ZeRO-2</h2><p>即使把优化器状态（O）均匀分布到所有显卡，每张卡依然无法容纳全部模型参数，因此还需要进一步优化显存：ZeRO-2 针对梯度（G）进行了切分。其核心思想是——反向传播计算过程中，每张卡只保留自身负责的 (1/8) G 分片，而不是完整保留所有梯度。</p>
-<p>实现方式是：在反向传播进行到每一层时，都会同步执行一次 Reduce-Scatter 操作，把这一层产出的梯度立即切分、分发至各卡，确保每张卡始终只持有属于自己的那部分梯度分片 (1/8 G)。显著降低了单卡所需显存，从而支持更大规模的模型训练。</p>
-<p>类似下图：<br>ZeRO-1<br>GPU0:  P[■■■■■■■■]  G[■■■■■■■■]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[■■■■■■■■]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
-<p>ZeRO-2<br>GPU0:  P[■■■■■■■■]  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
-<p>峰值显存对比（反向传播过程中）：<br>ZeRO-1：$(P + (1/8)O) + A + G(全量)$<br>ZeRO-2：$(P + (1/8)O) + A + G(1/8)$</p>
-<p>通信总量：虽然在每一层计算完后就会进行Reduce-Scatter将参数同步到其他卡上，但是实际传输数据的总量均是(7/8)G，然后Reduce的过程在各自卡上，计算很快，时间忽略不计。除此之外，传输过程是异步进行的，属于计算通信重叠，所以实际训练过程并不一定比ZeRO-1慢（ZeRO-2每次通信仍会有额外开销）。</p>
-<h2 id="5-ZeRO-3"><a href="#5-ZeRO-3" class="headerlink" title="5. ZeRO-3"></a>5. ZeRO-3</h2><p>即使将O，G均分到其他卡上，仍放不下所有参数，甚至对于70B的模型，其模型参数量达到140GB，光模型参数一张卡就已经放不下了。因此需要将P也切分分配到其他卡上。</p>
-<p>在ZeRO-3场景下，由于单卡缺少完整的参数，因此一张卡在正向传播过程中就需要进行通信了。<br>ZeRO-3中对每一层进行了切分，因此在每一层计算时均需要进行一次All-Gather完成该层的计算，然后在计算完后，丢弃同步过来的P。</p>
-<p>核心流程：</p>
-<ol>
-<li><p><strong>前向传播</strong>：水位 = $((1/8)P + (1/8)O) + A$<br>1.1 All-Gather当前层的参数<br>1.2 计算当前层的激活值<br>1.3 丢弃同步过来的层参数<br>1.4 重复上述步骤直到全部层计算完毕</p>
 </li>
-<li><p><strong>反向传播</strong>：水位 = $((1/8)P + (1/8)O) + A + (1/8)G$<br>2.1 All-Gather当前层的参数<br>2.2 计算当前层的梯度<br>2.3 丢弃当前层的激活值与同步过来的层参数<br>2.4 Reduce-Scatter当前层的梯度<br>2.5 重复上述步骤直到全部层计算完毕</p>
-</li>
-<li><p><strong>参数更新</strong>：水位：更新前 $((1/8)P + (1/8)O) + (1/8)G$，更新后 $((1/8)P + (1/8)O)$<br>与ZeRO-1相同，各卡更新自己的P与O即可，更新完后，丢掉G</p>
-</li>
-</ol>
-<h2 id="6-DeepSpeed"><a href="#6-DeepSpeed" class="headerlink" title="6. DeepSpeed"></a>6. DeepSpeed</h2><h3 id="6-1-DeepSpeed-是什么"><a href="#6-1-DeepSpeed-是什么" class="headerlink" title="6.1 DeepSpeed 是什么"></a>6.1 DeepSpeed 是什么</h3><p>DeepSpeed 是微软开发的<strong>分布式训练框架</strong>，上面讲的 ZeRO-1/2/3 正是由 DeepSpeed 团队提出的。DeepSpeed 将 ZeRO 论文中的理论工程化，提供了一套易用的训练加速库。</p>
-<p>简单理解：<strong>ZeRO 是论文/思想，DeepSpeed 是实现/框架</strong>。</p>
-<h3 id="6-2-核心能力"><a href="#6-2-核心能力" class="headerlink" title="6.2 核心能力"></a>6.2 核心能力</h3><div class="table-container">
+</ul>
+<h2 id="2-训练的三大阶段与显存占用"><a href="#2-训练的三大阶段与显存占用" class="headerlink" title="2. 训练的三大阶段与显存占用"></a>2. 训练的三大阶段与显存占用</h2><h3 id="2-1-显存账单核心成员"><a href="#2-1-显存账单核心成员" class="headerlink" title="2.1 显存账单核心成员"></a>2.1 显存账单核心成员</h3><ul>
+<li><strong>参数 (P)</strong>：模型权重。如果以FP16格式，占用 $2N$ 字节。</li>
+<li><strong>梯度 (G)</strong>：反向传播产生。如果以FP16格式，占用 $2N$ 字节。</li>
+<li><strong>优化器状态 (O)</strong>：以 Adam 为例，包含一阶动量（历史梯度的滑动平均，加速收敛）、二阶动量（历史梯度平方的滑动平均，自适应调整学习率）、FP32 Master Weights（保存一份高精度参数，防止精度损失），共占用 $12N$ 字节（$4N$+$4N$+$4N$）。</li>
+<li><strong>激活值 (A)</strong>：前向传播产生，随 Batch Size 和序列长度线性增长。</li>
+</ul>
+<p>常见训练方式：</p>
+<ul>
+<li><strong>纯 FP32 训练</strong>（老旧方法）：$P(4N) + G(4N) + O(8N) = 16N$。</li>
+<li><strong>混合精度训练</strong>（主流）：$P(2N) + G(2N) + O(12N) = 16N$。</li>
+</ul>
+<h3 id="2-2-常见数据类型"><a href="#2-2-常见数据类型" class="headerlink" title="2.2 常见数据类型"></a>2.2 常见数据类型</h3><div class="table-container">
 <table>
 <thead>
 <tr>
-<th>能力</th>
-<th>说明</th>
+<th>数据类型</th>
+<th>字节数</th>
+<th>符号位</th>
+<th>指数位</th>
+<th>尾数位</th>
+<th>备注</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>ZeRO-1/2/3</td>
-<td>上面已详细讲述，核心显存优化手段</td>
+<td>FP8</td>
+<td>1</td>
+<td>1</td>
+<td>4</td>
+<td>3</td>
+<td>1 字节，极致压缩与推理场景，精度损失较大</td>
 </tr>
 <tr>
-<td>ZeRO-Infinity</td>
-<td>将O/G甚至P卸载到CPU内存或NVMe磁盘，进一步突破显存瓶颈</td>
+<td>FP16</td>
+<td>2</td>
+<td>1</td>
+<td>5</td>
+<td>10</td>
+<td>2 字节，训练/推理常见，兼顾计算速度与精度</td>
 </tr>
 <tr>
-<td>3D并行</td>
-<td>将数据并行（ZeRO）、张量并行、流水线并行组合使用</td>
+<td>BF16</td>
+<td>2</td>
+<td>1</td>
+<td>8</td>
+<td>7</td>
+<td>2 字节，动态范围与 FP32 相同（同 8 位指数），运算精度低于 FP16，但溢出风险更低，硬件适配好</td>
 </tr>
 <tr>
-<td>混合精度训练</td>
-<td>FP16/BF16 + Loss Scaling，减少显存占用并加速计算</td>
+<td>FP32</td>
+<td>4</td>
+<td>1</td>
+<td>8</td>
+<td>23</td>
+<td>4 字节，标准单精度浮点，与 BF16 取值范围一致，可无损转换为 BF16 参与快速计算</td>
 </tr>
 <tr>
-<td>梯度累积</td>
-<td>模拟大batch size，适合单卡显存不足以一次处理大批次数据的场景</td>
+<td>TF32</td>
+<td>4</td>
+<td>1</td>
+<td>8</td>
+<td>10</td>
+<td>仅作为 TensorCore 内部计算格式，不用于显存存储。让 FP32 任务在不改代码的前提下获得近乎 FP16 的速度。</td>
 </tr>
 </tbody>
 </table>
 </div>
-<h3 id="6-3-ZeRO-Infinity"><a href="#6-3-ZeRO-Infinity" class="headerlink" title="6.3 ZeRO-Infinity"></a>6.3 ZeRO-Infinity</h3><p>ZeRO-1/2/3 已经将显存分摊到多张GPU上，但当模型足够大（如 175B+），即使多卡分摊仍然放不下。ZeRO-Infinity 的思路是<strong>把不急需的数据暂时搬到更便宜但更慢的存储上</strong>：</p>
+<p><strong>补充说明：</strong></p>
 <ul>
-<li><strong>优化器状态</strong> → 卸载到 CPU 内存（速度较快）</li>
-<li><strong>参数/梯度</strong> → 必要时卸载到 NVMe 磁盘（速度较慢，但容量大）</li>
+<li>BF16 与 FP32 拥有完全一致的指数位（8 位），所以理论上 FP32 范围内的数都能“无溢出”直接转为 BF16 存储/计算，只损失尾数精度。PyTorch 等训练框架广泛支持 FP32↔BF16 自动转换，方便在硬件加速下运算。</li>
+<li>TF32 (TensorFloat-32) 是 NVIDIA 新硬件上专为深度学习 TensorCore 设计的数据格式，精度介于 FP16 与 FP32 之间，加速大规模矩阵乘。</li>
+<li>选择数据类型时需权衡精度/动态范围/算力/内存，实际项目中常见混合精度与动态切换方案。</li>
 </ul>
-<p>代价是训练速度会下降（CPU/NVMe 与 GPU 之间的数据搬运有延迟），但好处是<strong>用时间换空间</strong>，使得在有限GPU资源下训练超大模型成为可能。</p>
-<h3 id="6-4-DeepSpeed-配置简介"><a href="#6-4-DeepSpeed-配置简介" class="headerlink" title="6.4 DeepSpeed 配置简介"></a>6.4 DeepSpeed 配置简介</h3><p>DeepSpeed 通过一个 <code>ds_config.json</code> 文件控制训练行为，核心配置项：</p>
-<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;train_batch_size&quot;</span><span class="punctuation">:</span> <span class="number">128</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;gradient_accumulation_steps&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;optimizer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;Adam&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;params&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;lr&quot;</span><span class="punctuation">:</span> <span class="number">1e-4</span> <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;zero_optimization&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;stage&quot;</span><span class="punctuation">:</span> <span class="number">2</span><span class="punctuation">,</span>                  <span class="comment">// 1/2/3 对应 ZeRO-1/2/3</span></span><br><span class="line">    <span class="attr">&quot;offload_optimizer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;device&quot;</span><span class="punctuation">:</span> <span class="string">&quot;cpu&quot;</span>            <span class="comment">// ZeRO-Infinity: 将优化器状态卸载到CPU</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;offload_param&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;device&quot;</span><span class="punctuation">:</span> <span class="string">&quot;nvme&quot;</span>           <span class="comment">// ZeRO-Infinity: 将参数卸载到NVMe</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;bf16&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span> <span class="punctuation">&#125;</span>    <span class="comment">// 混合精度</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
-<p>关键配置项就一个：<code>zero_optimization.stage</code>，设为 1/2/3 对应使用 ZeRO-1/2/3。配合 <code>offload_*</code> 即可开启 ZeRO-Infinity。</p>
-<h3 id="6-5-ZeRO-1-2-3-总结对比"><a href="#6-5-ZeRO-1-2-3-总结对比" class="headerlink" title="6.5 ZeRO-1/2/3 总结对比"></a>6.5 ZeRO-1/2/3 总结对比</h3><div class="table-container">
+<h3 id="2-3-训练阶段显存占用情况"><a href="#2-3-训练阶段显存占用情况" class="headerlink" title="2.3 训练阶段显存占用情况"></a>2.3 训练阶段显存占用情况</h3><ol>
+<li><strong>前向传播</strong>：水位 = $(P + O) + A$<ul>
+<li><em>过程</em>：随着层数加深，激活值 $A$ 像叠罗汉一样堆积。</li>
+<li><em>终态</em>：到达前向传播结束，持有全量激活值。</li>
+</ul>
+</li>
+<li><strong>反向传播</strong>：水位 = $(P + O) + A + G$<ul>
+<li><em>过程</em>：显存峰值在这个阶段。梯度 $G$ 在产生，激活值 $A$ 在逐层释放。</li>
+<li><em>峰值</em>：出现在反向传播开始的瞬间，此时 $A$ 还没开始释放，而第一层梯度 $G$ 已经产生。</li>
+</ul>
+</li>
+<li><strong>参数更新</strong>：水位 = $(P + O) + G$<ul>
+<li><em>过程</em>：此时 $A$ 已完全释放。优化器利用 $G$ 更新 $O$ 和 $P$。</li>
+<li><em>终态</em>：更新完毕，清空 $G$。</li>
+</ul>
+</li>
+<li><strong>休整期</strong>：水位 = $P + O$<ul>
+<li><em>状态</em>：显存回到最低水位，等待下一轮 Batch。</li>
+</ul>
+</li>
+</ol>
+<p>注：在第一轮迭代（Step 0）的起始点，显存仅占用 $P$；随着第一次 <code>optimizer.step()</code> 执行，优化器状态 $O$ 被初始化并从此常驻显存。</p>
+<h2 id="3-Transformer：大模型并行的结构基础"><a href="#3-Transformer：大模型并行的结构基础" class="headerlink" title="3. Transformer：大模型并行的结构基础"></a>3. Transformer：大模型并行的结构基础</h2><h3 id="3-1-Attention-机制与显存瓶颈"><a href="#3-1-Attention-机制与显存瓶颈" class="headerlink" title="3.1 Attention 机制与显存瓶颈"></a>3.1 Attention 机制与显存瓶颈</h3><ul>
+<li><strong>QKV 逻辑</strong>：Q(找什么)与 K(有什么)做矩阵乘法算相关性，再作用于 V(内容) 得到输出。</li>
+<li><strong>显存瓶颈</strong>：计算过程中会产生一个 $(Seq, Seq)$ 大小的中间矩阵。</li>
+<li><strong>结论</strong>：显存占用随序列长度 $S$ 的<strong>平方</strong>增长。这是长文本训练（如 32k+）容易 OOM 的根本原因。<h3 id="3-2-堆叠架构与并行友好性"><a href="#3-2-堆叠架构与并行友好性" class="headerlink" title="3.2 堆叠架构与并行友好性"></a>3.2 堆叠架构与并行友好性</h3></li>
+<li><strong>结构</strong>：由多个完全相同的 Block（Attention + MLP）纵向堆叠而成。</li>
+<li><strong>Infra 意义</strong>：<ul>
+<li><strong>好切分</strong>：这种“乐高式”结构是按层切分（FSDP/流水并行）的物理基础。</li>
+<li><strong>算力压榨</strong>：全是矩阵乘法，天然适配 GPU TensorCore，比 RNN 这种串行结构更容易跑满算力。</li>
+</ul>
+</li>
+</ul>
+<h2 id="4-PyTorch-训练实战（以-MLP-为例）"><a href="#4-PyTorch-训练实战（以-MLP-为例）" class="headerlink" title="4. PyTorch 训练实战（以 MLP 为例）"></a>4. PyTorch 训练实战（以 MLP 为例）</h2><h3 id="4-1-环境与模型定义"><a href="#4-1-环境与模型定义" class="headerlink" title="4.1 环境与模型定义"></a>4.1 环境与模型定义</h3><ul>
+<li><strong>依赖</strong>：PyTorch 核心库。</li>
+<li><strong>MLP 模型定义示例</strong>：2 个隐藏层为例（全连接），包含模型类与 forward 函数——<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">MLP</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, input_dim, hidden_dim1, hidden_dim2, output_dim</span>):</span><br><span class="line">        <span class="built_in">super</span>().__init__()</span><br><span class="line">        <span class="variable language_">self</span>.fc1 = nn.Linear(input_dim, hidden_dim1)</span><br><span class="line">        <span class="variable language_">self</span>.relu1 = nn.ReLU()</span><br><span class="line">        <span class="variable language_">self</span>.fc2 = nn.Linear(hidden_dim1, hidden_dim2)</span><br><span class="line">        <span class="variable language_">self</span>.relu2 = nn.ReLU()</span><br><span class="line">        <span class="variable language_">self</span>.fc3 = nn.Linear(hidden_dim2, output_dim)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">        x = <span class="variable language_">self</span>.relu1(<span class="variable language_">self</span>.fc1(x))</span><br><span class="line">        x = <span class="variable language_">self</span>.relu2(<span class="variable language_">self</span>.fc2(x))</span><br><span class="line">        x = <span class="variable language_">self</span>.fc3(x)</span><br><span class="line">        <span class="keyword">return</span> x</span><br></pre></td></tr></table></figure></li>
+<li><em>Infra 意义</em>：<code>forward</code> 的执行顺序影响激活值的产生与释放。</li>
+</ul>
+<h3 id="4-2-数据准备"><a href="#4-2-数据准备" class="headerlink" title="4.2 数据准备"></a>4.2 数据准备</h3><ul>
+<li>本节数据准备部分不再提供代码，实际场景中可根据任务生成数据集及 DataLoader。</li>
+<li><em>Infra 意义</em>：在真实训练中，合理利用如 <code>num_workers</code> 和 <code>pin_memory</code> 等参数可以有效加速数据传输到 GPU，提升整体数据面性能。</li>
+</ul>
+<h3 id="4-3-核心训练-Loop"><a href="#4-3-核心训练-Loop" class="headerlink" title="4.3 核心训练 Loop"></a>4.3 核心训练 Loop</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> data, target <span class="keyword">in</span> train_loader:</span><br><span class="line">    <span class="comment"># 1. 梯度清零：防止上一个 Batch 的梯度累加</span></span><br><span class="line">    optimizer.zero_grad() </span><br><span class="line"></span><br><span class="line">    <span class="comment"># 2. 前向传播：计算输出，显存水位升至 P + A</span></span><br><span class="line">    output = model(data)</span><br><span class="line">    loss = criterion(output, target)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 3. 反向传播：计算梯度，显存到达峰值 P + A + G</span></span><br><span class="line">    <span class="comment"># 分布式场景下，此处触发 NCCL All-Reduce 进行梯度同步</span></span><br><span class="line">    loss.backward() </span><br><span class="line"></span><br><span class="line">    <span class="comment"># 4. 参数更新：利用梯度更新参数，显存水位 P + G + O</span></span><br><span class="line">    <span class="comment"># 执行完后，本轮的 A 和 G 被释放，显存回落至 P + O</span></span><br><span class="line">    optimizer.step() </span><br></pre></td></tr></table></figure>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" data-id="cuidPjfypH9Y_4q-unBV03ZvT" data-title="训练基础" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+</article>
+
+
+
+  
+    <article id="post-分布式训练2-大模型显存物理边界" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/" class="article-date">
+  <time class="dt-published" datetime="2026-05-09T23:40:00.000Z" itemprop="datePublished">2026-05-10</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 itemprop="name">
+      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/">大模型显存物理边界</a>
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="大模型显存物理边界"><a href="#大模型显存物理边界" class="headerlink" title="大模型显存物理边界"></a>大模型显存物理边界</h1><p>本文主要讲述由于物理限制，单卡不能训练大模型的原因。</p>
+<h2 id="1-大模型尺寸参数"><a href="#1-大模型尺寸参数" class="headerlink" title="1. 大模型尺寸参数"></a>1. 大模型尺寸参数</h2><h3 id="1-1-基础单位说明"><a href="#1-1-基础单位说明" class="headerlink" title="1.1 基础单位说明"></a>1.1 基础单位说明</h3><ul>
+<li><strong>7B (Billion)</strong>：70 亿个模型参数量。</li>
+<li><strong>参数量与显存的关系</strong>：在 BF16 精度下，1B 参数约占用 <strong>2 GB</strong> 显存（仅参数本身）。</li>
+<li><strong>常见量级</strong>：7B/8B（入门级）、14B/32B（中型）、70B（大型）、175B（GPT-3 等级）。</li>
+</ul>
+<h3 id="1-2-常用的大模型"><a href="#1-2-常用的大模型" class="headerlink" title="1.2 常用的大模型"></a>1.2 常用的大模型</h3><ol>
+<li><strong>LLaMA 系列 (Meta)</strong>：<ul>
+<li><strong>LLaMA-2-7B / 13B / 70B</strong></li>
+<li><strong>LLaMA-3-8B / 70B</strong>（当前最火的开源标杆，很多优化都围绕它做）。</li>
+</ul>
+</li>
+<li><strong>Qwen 系列 (阿里通义千问)</strong>：<ul>
+<li><strong>Qwen-7B / 14B / 32B / 72B</strong>（国产模型标杆，32B 是平衡性能与显存的典型）。</li>
+</ul>
+</li>
+<li><strong>DeepSeek 系列 (深度求索)</strong>：<ul>
+<li><strong>DeepSeek-V2 / V3</strong>（以 MoE 架构著称）。</li>
+</ul>
+</li>
+<li><strong>Mistral / Mixtral (Mistral AI)</strong>：<ul>
+<li><strong>Mistral-7B</strong></li>
+<li><strong>Mixtral-8x7B</strong>（MoE 架构的先驱）。</li>
+</ul>
+</li>
+</ol>
+<h3 id="1-3-训练时的显存账单"><a href="#1-3-训练时的显存账单" class="headerlink" title="1.3 训练时的显存账单"></a>1.3 训练时的显存账单</h3><p>根据第一章的分析，训练过程中的显存占用由 <strong>P（参数）+ G（梯度）+ O（优化器状态）+ A（激活值）</strong> 构成。</p>
+<h4 id="1-3-1-静态显存占用-P-G-O"><a href="#1-3-1-静态显存占用-P-G-O" class="headerlink" title="1.3.1 静态显存占用 (P + G + O)"></a>1.3.1 静态显存占用 (P + G + O)</h4><p>在主流的 <strong>Adam 混合精度训练</strong> 场景下，静态显存占用约为参数量 N 的 <strong>16 倍</strong>：</p>
+<ul>
+<li><strong>公式</strong>：P(2N) + G(2N) + O(12N) = 16N 字节。</li>
+<li><strong>32B 模型口算</strong>：32B * 16 = 512 GB。</li>
+<li><strong>8B 模型口算</strong>：8B * 16 = 128 GB。</li>
+</ul>
+<h4 id="1-3-2-动态显存占用-A"><a href="#1-3-2-动态显存占用-A" class="headerlink" title="1.3.2 动态显存占用 (A)"></a>1.3.2 动态显存占用 (A)</h4><p>动态显存与模型结构关联较大，且激活值难以精确计算。<br>比如，在MLP模型场景中，A的占用较少，可以不做重点讨论， 而对于 Transformer 场景，A 的占用却不能忽视，其中 Attention 的分数矩阵与序列长度呈平方增长</p>
+<p>以 7B 模型（$d=4096$，$h=32$，$4d=11008$，32 层），$B=1$，BF16 为例：</p>
+<div class="table-container">
 <table>
 <thead>
 <tr>
-<th></th>
-<th>ZeRO-1</th>
-<th>ZeRO-2</th>
-<th>ZeRO-3</th>
+<th style="text-align:left">场景</th>
+<th style="text-align:left">序列长度</th>
+<th style="text-align:left">激活值估算</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>切分对象</td>
-<td>O</td>
-<td>O + G</td>
-<td>O + G + P</td>
+<td style="text-align:left">7B, B=1, S=2048</td>
+<td style="text-align:left">2K</td>
+<td style="text-align:left">~12-15 GB</td>
 </tr>
 <tr>
-<td>单卡静态显存</td>
-<td>$P + (1/N)O$</td>
-<td>$P + (1/N)(O+G)$</td>
-<td>$(1/N)(P+O+G)$</td>
+<td style="text-align:left">7B, B=1, S=4096</td>
+<td style="text-align:left">4K</td>
+<td style="text-align:left">~35-40 GB</td>
 </tr>
 <tr>
-<td>通信开销</td>
-<td>低</td>
-<td>中</td>
-<td>高</td>
-</tr>
-<tr>
-<td>训练速度影响</td>
-<td>几乎无</td>
-<td>较小</td>
-<td>明显下降（频繁All-Gather）</td>
-</tr>
-<tr>
-<td>适用场景</td>
-<td>模型刚好放不下的情况</td>
-<td>需要更大batch的场景</td>
-<td>模型极大，单卡放不下P的场景</td>
+<td style="text-align:left">7B, B=1, S=8192</td>
+<td style="text-align:left">8K</td>
+<td style="text-align:left">~100+ GB</td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>选型原则：<strong>能用低stage就不用高stage</strong>，通信开销随stage递增，速度随stage递减。</p>
-<h3 id="6-6-使用示例"><a href="#6-6-使用示例" class="headerlink" title="6.6 使用示例"></a>6.6 使用示例</h3><p>一个最简的 DeepSpeed 训练流程只需要 <strong>三步</strong>：写模型、写配置、启动。</p>
-<h4 id="第一步：训练脚本-train-py"><a href="#第一步：训练脚本-train-py" class="headerlink" title="第一步：训练脚本 train.py"></a>第一步：训练脚本 <code>train.py</code></h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> deepspeed</span><br><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn</span><br><span class="line"><span class="keyword">from</span> torch.utils.data <span class="keyword">import</span> DataLoader, TensorDataset</span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. 定义模型（以简单MLP为例）</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">SimpleModel</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, hidden_dim=<span class="number">1024</span></span>):</span><br><span class="line">        <span class="built_in">super</span>().__init__()</span><br><span class="line">        <span class="variable language_">self</span>.net = nn.Sequential(</span><br><span class="line">            nn.Linear(hidden_dim, hidden_dim),</span><br><span class="line">            nn.ReLU(),</span><br><span class="line">            nn.Linear(hidden_dim, hidden_dim),</span><br><span class="line">            nn.ReLU(),</span><br><span class="line">            nn.Linear(hidden_dim, <span class="number">1</span>),</span><br><span class="line">        )</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">        <span class="keyword">return</span> <span class="variable language_">self</span>.net(x).squeeze()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 构造模型、数据、损失函数</span></span><br><span class="line">model = SimpleModel()</span><br><span class="line">dataset = TensorDataset(torch.randn(<span class="number">10000</span>, <span class="number">1024</span>), torch.randn(<span class="number">10000</span>))</span><br><span class="line">loader = DataLoader(dataset, batch_size=<span class="number">32</span>)</span><br><span class="line"></span><br><span class="line">criterion = nn.MSELoss()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. DeepSpeed 初始化（替代原来的 optimizer = ... ）</span></span><br><span class="line"><span class="comment">#    engine 就是 deepspeed 管理后的模型，包含了优化器、调度器等</span></span><br><span class="line">model_engine, optimizer, _, _ = deepspeed.initialize(</span><br><span class="line">    model=model,</span><br><span class="line">    model_parameters=model.parameters(),</span><br><span class="line">    config=<span class="string">&quot;ds_config.json&quot;</span>,       <span class="comment"># 配置文件路径</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 训练循环（和普通PyTorch几乎一样，区别只在 loss.backward → engine.backward）</span></span><br><span class="line">model_engine.train()</span><br><span class="line"><span class="keyword">for</span> epoch <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">3</span>):</span><br><span class="line">    <span class="keyword">for</span> batch_x, batch_y <span class="keyword">in</span> loader:</span><br><span class="line">        batch_x, batch_y = batch_x.to(model_engine.device), batch_y.to(model_engine.device)</span><br><span class="line"></span><br><span class="line">        outputs = model_engine(batch_x)</span><br><span class="line">        loss = criterion(outputs, batch_y)</span><br><span class="line"></span><br><span class="line">        model_engine.backward(loss)        <span class="comment"># 替代 loss.backward()</span></span><br><span class="line">        model_engine.step()                <span class="comment"># 替代 optimizer.step()</span></span><br></pre></td></tr></table></figure>
-<p>对比普通 PyTorch 训练，改动只有两处：</p>
 <ul>
-<li>用 <code>deepspeed.initialize()</code> 替代手动创建 optimizer</li>
-<li>用 <code>model_engine.backward()</code> + <code>model_engine.step()</code> 替代 <code>loss.backward()</code> + <code>optimizer.step()</code></li>
+<li><strong>Infra 视角</strong>：即便显存能装下 512 GB 的静态部分，如果剩余显存不足以容纳 A，依然会触发 OOM。</li>
 </ul>
-<h4 id="第二步：配置文件-ds-config-json"><a href="#第二步：配置文件-ds-config-json" class="headerlink" title="第二步：配置文件 ds_config.json"></a>第二步：配置文件 <code>ds_config.json</code></h4><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;train_batch_size&quot;</span><span class="punctuation">:</span> <span class="number">256</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;gradient_accumulation_steps&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;zero_optimization&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;stage&quot;</span><span class="punctuation">:</span> <span class="number">2</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;bf16&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="string">&quot;auto&quot;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
-<p>就一个关键配置：<code>stage: 2</code> 表示使用 ZeRO-2。想切 ZeRO-3 改成 <code>3</code> 即可。</p>
-<h4 id="第三步：启动命令"><a href="#第三步：启动命令" class="headerlink" title="第三步：启动命令"></a>第三步：启动命令</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 单机多卡（最常见）</span></span><br><span class="line">deepspeed train.py --deepspeed_config ds_config.json</span><br><span class="line"></span><br><span class="line"><span class="comment"># 多机多卡</span></span><br><span class="line">deepspeed --num_gpus=8 train.py --deepspeed_config ds_config.json</span><br><span class="line"></span><br><span class="line"><span class="comment"># 等价于 torchrun 的用法</span></span><br><span class="line">deepspeed --num_nodes=2 --num_gpus_per_node=8 train.py --deepspeed_config ds_config.json</span><br></pre></td></tr></table></figure>
-<p><code>deepspeed</code> 命令会自动处理多进程启动、GPU分配、通信组初始化等，替代原来的 <code>torchrun</code> 或 <code>python -m torch.distributed.launch</code>。</p>
-<h4 id="与-Hugging-Face-集成（实战更常用）"><a href="#与-Hugging-Face-集成（实战更常用）" class="headerlink" title="与 Hugging Face 集成（实战更常用）"></a>与 Hugging Face 集成（实战更常用）</h4><p>实际工作中更常见的是用 Hugging Face Transformers + DeepSpeed，只需要在 <code>TrainingArguments</code> 中加一行：</p>
-<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> transformers <span class="keyword">import</span> TrainingArguments, Trainer</span><br><span class="line"></span><br><span class="line">training_args = TrainingArguments(</span><br><span class="line">    output_dir=<span class="string">&quot;./output&quot;</span>,</span><br><span class="line">    per_device_train_batch_size=<span class="number">16</span>,</span><br><span class="line">    <span class="comment"># 只需加这一行，指向配置文件即可</span></span><br><span class="line">    deepspeed=<span class="string">&quot;ds_config.json&quot;</span>,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">trainer = Trainer(</span><br><span class="line">    model=model,</span><br><span class="line">    args=training_args,</span><br><span class="line">    train_dataset=train_dataset,</span><br><span class="line">)</span><br><span class="line">trainer.train()</span><br></pre></td></tr></table></figure>
-<p>Hugging Face 内部会自动调用 <code>deepspeed.initialize()</code>，不需要手动管理 engine。</p>
+<h4 id="1-3-3-结论：显存峰值"><a href="#1-3-3-结论：显存峰值" class="headerlink" title="1.3.3 结论：显存峰值"></a>1.3.3 结论：显存峰值</h4><ul>
+<li><strong>峰值时刻</strong>：反向传播起始瞬间。</li>
+<li><strong>峰值公式</strong>：Peak Memory = 16N + A。</li>
+<li><strong>核心矛盾</strong>：对于 32B 模型，单卡 80 GB 显存甚至连其 1/6 的静态数据都装不下，这是分布式训练的根本动机。</li>
+</ul>
+<h2 id="2-常见显卡类型"><a href="#2-常见显卡类型" class="headerlink" title="2. 常见显卡类型"></a>2. 常见显卡类型</h2><div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:left">显卡型号</th>
+<th style="text-align:left">显存容量</th>
+<th style="text-align:left">算力架构</th>
+<th style="text-align:left">备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>NVIDIA H100</strong></td>
+<td style="text-align:left">80 GB</td>
+<td style="text-align:left">Hopper</td>
+<td style="text-align:left">当前大模型训练的最强主力</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>NVIDIA A100</strong></td>
+<td style="text-align:left">40 GB / 80 GB</td>
+<td style="text-align:left">Ampere</td>
+<td style="text-align:left">曾经的标杆，目前仍广泛使用</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>NVIDIA V100</strong></td>
+<td style="text-align:left">16 GB / 32 GB</td>
+<td style="text-align:left">Volta</td>
+<td style="text-align:left">较老机型，单卡几乎跑不动 7B</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>RTX 4090</strong></td>
+<td style="text-align:left">24 GB</td>
+<td style="text-align:left">Ada Lovelace</td>
+<td style="text-align:left">消费级旗舰，常用于单卡微调或实验</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>昇腾 910B</strong></td>
+<td style="text-align:left">64 GB</td>
+<td style="text-align:left">DaVinci</td>
+<td style="text-align:left">国产算力标杆，显存介于 A100 40G 与 80G 之间</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h2 id="3-单卡限制与多卡需求"><a href="#3-单卡限制与多卡需求" class="headerlink" title="3. 单卡限制与多卡需求"></a>3. 单卡限制与多卡需求</h2><p>通过对比模型账单与硬件规格，可以得到下面的结论：</p>
+<h3 id="3-1-单卡场景"><a href="#3-1-单卡场景" class="headerlink" title="3.1 单卡场景"></a>3.1 单卡场景</h3><ul>
+<li>训练一个 32B 模型需要 512 GB 静态显存。</li>
+<li>即便是最强的 H100 (80 GB)，也只能装下其 15% 的静态数据。</li>
+<li><strong>直观结论</strong>：单张显卡连模型参数都存不下，更别提运行了。</li>
+</ul>
+<h3 id="3-2-多卡场景"><a href="#3-2-多卡场景" class="headerlink" title="3.2 多卡场景"></a>3.2 多卡场景</h3><ul>
+<li>目前单机可以安装8张显卡。如果我们有一台 8 卡 H100机器（8 * 80 GB = 640 GB），总显存量是大于 512 GB 的。</li>
+<li><strong>直观结论</strong>：多卡可以容纳32B模型的静态参数，但实际训练还需要考虑模型的切分方式与激活值部分。</li>
+</ul>
+<h3 id="3-3-后续方向"><a href="#3-3-后续方向" class="headerlink" title="3.3 后续方向"></a>3.3 后续方向</h3><p>既然单卡存不下但多卡总量够，接下来的核心工作就是如何将模型状态（参数、梯度、优化器状态）分布到多张显卡上。<br>目前主流的切分思路包括：</p>
+<ul>
+<li><strong>ZeRO/DeepSpeed</strong>：侧重于切分优化器状态和梯度。</li>
+<li><strong>FSDP</strong>：进一步切分模型参数。</li>
+<li><strong>3D 并行 (Megatron)</strong>：结合张量并行与流水并行。<br>这些会在后续的文章讲解。</li>
+</ul>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" data-id="cuid81c2zFlWbeYO6n1RoWXi0" data-title="ZeRO-123和Deepspeed" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/" data-id="cuide4F2EGVb9wyEgBy-nhn44" data-title="大模型显存物理边界" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -894,7 +882,7 @@
     <article id="post-分布式训练3-分布式训练优化与评估指标" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
     <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:44:33.651Z" itemprop="datePublished">2026-05-10</time>
+  <time class="dt-published" datetime="2026-05-09T23:30:00.000Z" itemprop="datePublished">2026-05-10</time>
 </a>
     
   <div class="article-category">
@@ -1079,7 +1067,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" data-id="cuidZJvdIRNfKK5se7heXPJ32" data-title="分布式训练优化策略与评估指标" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%833-%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83%E4%BC%98%E5%8C%96%E4%B8%8E%E8%AF%84%E4%BC%B0%E6%8C%87%E6%A0%87/" data-id="cuidQ_piAJQf8lr3csoT48A0F" data-title="分布式训练优化策略与评估指标" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1091,10 +1079,10 @@
 
 
   
-    <article id="post-分布式训练2-大模型显存物理边界" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+    <article id="post-分布式训练4-ZeRO-123和deepspeed" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
-    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:44:31.202Z" itemprop="datePublished">2026-05-10</time>
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" class="article-date">
+  <time class="dt-published" datetime="2026-05-09T23:20:00.000Z" itemprop="datePublished">2026-05-10</time>
 </a>
     
   <div class="article-category">
@@ -1109,7 +1097,7 @@
         
   
     <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/">大模型显存物理边界</a>
+      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/">ZeRO-123和Deepspeed</a>
     </h1>
   
 
@@ -1117,142 +1105,167 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="大模型显存物理边界"><a href="#大模型显存物理边界" class="headerlink" title="大模型显存物理边界"></a>大模型显存物理边界</h1><p>本文主要讲述由于物理限制，单卡不能训练大模型的原因。</p>
-<h2 id="1-大模型尺寸参数"><a href="#1-大模型尺寸参数" class="headerlink" title="1. 大模型尺寸参数"></a>1. 大模型尺寸参数</h2><h3 id="1-1-基础单位说明"><a href="#1-1-基础单位说明" class="headerlink" title="1.1 基础单位说明"></a>1.1 基础单位说明</h3><ul>
-<li><strong>7B (Billion)</strong>：70 亿个模型参数量。</li>
-<li><strong>参数量与显存的关系</strong>：在 BF16 精度下，1B 参数约占用 <strong>2 GB</strong> 显存（仅参数本身）。</li>
-<li><strong>常见量级</strong>：7B/8B（入门级）、14B/32B（中型）、70B（大型）、175B（GPT-3 等级）。</li>
-</ul>
-<h3 id="1-2-常用的大模型"><a href="#1-2-常用的大模型" class="headerlink" title="1.2 常用的大模型"></a>1.2 常用的大模型</h3><ol>
-<li><strong>LLaMA 系列 (Meta)</strong>：<ul>
-<li><strong>LLaMA-2-7B / 13B / 70B</strong></li>
-<li><strong>LLaMA-3-8B / 70B</strong>（当前最火的开源标杆，很多优化都围绕它做）。</li>
-</ul>
+        <h1 id="ZeRO-123和Deepspeed"><a href="#ZeRO-123和Deepspeed" class="headerlink" title="ZeRO-123和Deepspeed"></a>ZeRO-123和Deepspeed</h1><p>前面的章节讲述了大模型训练的实现策略与分布式场景的优化。本章节开始讲述其中一种实现策略，ZeRO-123与Deepspeed</p>
+<h2 id="1-ZeRO原理"><a href="#1-ZeRO原理" class="headerlink" title="1. ZeRO原理"></a>1. ZeRO原理</h2><p>主要就是训练过程中的P+G+O无法被存储在一张显卡上，因此将P，G，O分配到其他卡上。</p>
+<h2 id="2-DDP-原始方案"><a href="#2-DDP-原始方案" class="headerlink" title="2. DDP 原始方案"></a>2. DDP 原始方案</h2><p>ZeRO是在分布式训练基础上进行的，因此下述先简单讲讲分布式训练与单卡训练过程的不同点。<br>DDP就是最经典的分布式训练方案。</p>
+<p>DDP 训练过程中，每张卡上都会加载同一份 P，各自使用不同的数据进行训练。每张卡算出的梯度 G 不同，因此需要通过All-Reduce 对 G 求平均，确保所有卡拿到相同的全局梯度后再更新 P，从而保证各卡上的 P 始终一致。</p>
+<p>注意：这里是对G进行All-Reduce，而不是P。因为如果不对G求平均，使用不同的G不止更新出不同的P，还会更新出不同的O，这样的话，就要同步P和O了，而 O 的同步没有合理的公式。</p>
+<p>DDP 的流程：</p>
+<ol>
+<li>所有卡加载同一份 P，各自拿不同的数据</li>
+<li>前向 + 反向 → 算出各自的局部梯度 G（不同）</li>
+<li>All-Reduce 同步 G → 每张卡拿到全局平均梯度 G（相同）</li>
+<li>各卡用相同的 G 在本地更新 P → 更新后 P 自然相同</li>
+</ol>
+<h2 id="3-ZeRO-1"><a href="#3-ZeRO-1" class="headerlink" title="3. ZeRO-1"></a>3. ZeRO-1</h2><p>在 Adam 优化器中，<strong>O (优化器状态)</strong> 占比最大（12N，占静态显存的 75%）。ZeRO-1 发现 O 在前向和反向传播中完全不参与计算，仅在“参数更新”那一瞬间被访问。因此，将其均分到各卡上收益最高。</p>
+<p>核心流程（以 8 卡为例）</p>
+<ol>
+<li><strong>前向传播</strong>：水位 = $(P + (1/8)O) + A$<br> 相比于单卡训练，前向传播过程中，O只占用了1/8，对应自己负责的那部分优化器状态。并且当前步骤并未使用到O，所以只存储(1/8)O不会对该过程造成影响</li>
+<li><strong>反向传播</strong>：水位 = $(P + (1/8)O) + A + G$<br>同样当前步骤并未使用到O，所以只存储(1/8)O不会对该过程造成影响<br> 除此之外，A在反向传播过程中逐步释放（算完一层释放一层）。</li>
+<li><strong>Reduce-Scatter</strong>：水位 = $(P + (1/8)O) + (1/8)G$<br> 这步是ZeRO-1增加的步骤。<br> 首先ZeRO-1是在DP的基础上进行训练的，所以需要进行Reduce操作，每部分的梯度都需要求平均。<br> 然后由于每张卡仅存储了(1/8)O，仅能更新对应的(1/8)P，因此每张卡上仅需要对应的(1/8)G就能完成对应的更新操作，所以仅需要Reduce-Scatter操作，让每张卡处理对应的(1/8)G即可，不需要All-Reduce。</li>
+<li><strong>参数更新</strong>：水位：更新前 $(P + (1/8)O) + (1/8)G$，更新后 $((1/8)P + (1/8)O)$<br>由于每张卡只有(1/8)O，而切分策略保证了单卡上仅有的O能完成对应(1/8)P的更新，同时O也在同步更新。之后每张卡弃掉用不到的(7/8)P。<br>同时在算完P后，G也会被释放。</li>
+<li><strong>All-Gather</strong>：水位 = $P + (1/8)O$<br>这步是ZeRO-1增加的步骤。<br>为了后续快速的前向传播与后向传播计算，需要每张卡拥有完整的P，因此通过All-Gather将每张卡汇聚出完整的P</li>
+</ol>
+<p>ZeRO-1 核心流程 (以 8 卡为例，仅展示 GPU 0 视角)</p>
+<p>图例: ■ = 持有    □ = 空缺/已释放</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段1: 前向传播                              [不用 O]<br>═══════════════════════════════════════════════════════════<br>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  A[■■■■]<br>        全量P          1/8 O         激活值堆积</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段2: 反向传播                              [不用 O]<br>═══════════════════════════════════════════════════════════<br>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  G[■■■■■■■■]<br>        全量P          1/8 O         算出全量局部G<br>                        (一直没用上)    A 逐步释放中</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段3: Reduce-Scatter    ← 8卡互相交换梯度并求平均 →<br>═══════════════════════════════════════════════════════════<br>        交换前: G[■■■■■■■■]  全量局部梯度<br>        交换后: G[■□□□□□□□]  只留自己负责的 1/8 全局梯度</p>
+<p>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]  G[■□□□□□□□]<br>                                ^^^^^^^^^^^^<br>                                各卡取不同位置，凑起来就是完整G<br>GPU0:  P[■■■■■■■■]  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
+<p>═══════════════════════════════════════════════════════════<br>阶段4: 参数更新 (本地计算，无通信)<br>═══════════════════════════════════════════════════════════<br>        Adam: 用 1/8 G + 1/8 O → 更新 1/8 P，O 同步刷新</p>
+<pre><code>    更新前: P[■■■■■■■■]  O[■□□□□□□□]  G[■□□□□□□□]
+    更新后: P[■□□□□□□□]  O[■□□□□□□□]  G[□□□□□□□□]
+            丢弃7/8 P      (已刷新)      G释放
+</code></pre><p>═══════════════════════════════════════════════════════════<br>阶段5: All-Gather    ← 8卡互相交换更新后的 1/8 P →<br>═══════════════════════════════════════════════════════════<br>        交换前: P[■□□□□□□□]  每人只有自己的 1/8<br>        交换后: P[■■■■■■■■]  汇聚成全量新 P</p>
+<p>GPU0:  P[■■■■■■■■]  O[■□□□□□□□]<br>        完整新P         1/8 O → 回到阶段1，开始下一轮</p>
+<p>多卡视角看 Reduce-Scatter 这一步会更直观：</p>
+<p>Reduce-Scatter: 8卡各持不同分片的 O，所以各取不同位置的 G</p>
+<p>GPU0:  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
+<p>横向拼起来 = 完整的 G 和 O，每张卡只做自己的那块更新</p>
+<h2 id="4-ZeRO-2"><a href="#4-ZeRO-2" class="headerlink" title="4. ZeRO-2"></a>4. ZeRO-2</h2><p>即使把优化器状态（O）均匀分布到所有显卡，每张卡依然无法容纳全部模型参数，因此还需要进一步优化显存：ZeRO-2 针对梯度（G）进行了切分。其核心思想是——反向传播计算过程中，每张卡只保留自身负责的 (1/8) G 分片，而不是完整保留所有梯度。</p>
+<p>实现方式是：在反向传播进行到每一层时，都会同步执行一次 Reduce-Scatter 操作，把这一层产出的梯度立即切分、分发至各卡，确保每张卡始终只持有属于自己的那部分梯度分片 (1/8 G)。显著降低了单卡所需显存，从而支持更大规模的模型训练。</p>
+<p>类似下图：<br>ZeRO-1<br>GPU0:  P[■■■■■■■■]  G[■■■■■■■■]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[■■■■■■■■]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[■■■■■■■■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
+<p>ZeRO-2<br>GPU0:  P[■■■■■■■■]  G[■□□□□□□□]  O[■□□□□□□□]   ← 卡0 负责第1块<br>GPU1:  P[■■■■■■■■]  G[□■□□□□□□]  O[□■□□□□□□]   ← 卡1 负责第2块<br>GPU2:  P[■■■■■■■■]  G[□□■□□□□□]  O[□□■□□□□□]   ← 卡2 负责第3块<br>GPU3:  P[■■■■■■■■]  G[□□□■□□□□]  O[□□□■□□□□]   ← 卡3 负责第4块<br>GPU4:  P[■■■■■■■■]  G[□□□□■□□□]  O[□□□□■□□□]   ← 卡4 负责第5块<br>GPU5:  P[■■■■■■■■]  G[□□□□□■□□]  O[□□□□□■□□]   ← 卡5 负责第6块<br>GPU6:  P[■■■■■■■■]  G[□□□□□□■□]  O[□□□□□□■□]   ← 卡6 负责第7块<br>GPU7:  P[■■■■■■■■]  G[□□□□□□□■]  O[□□□□□□□■]   ← 卡7 负责第8块</p>
+<p>峰值显存对比（反向传播过程中）：<br>ZeRO-1：$(P + (1/8)O) + A + G(全量)$<br>ZeRO-2：$(P + (1/8)O) + A + G(1/8)$</p>
+<p>通信总量：虽然在每一层计算完后就会进行Reduce-Scatter将参数同步到其他卡上，但是实际传输数据的总量均是(7/8)G，然后Reduce的过程在各自卡上，计算很快，时间忽略不计。除此之外，传输过程是异步进行的，属于计算通信重叠，所以实际训练过程并不一定比ZeRO-1慢（ZeRO-2每次通信仍会有额外开销）。</p>
+<h2 id="5-ZeRO-3"><a href="#5-ZeRO-3" class="headerlink" title="5. ZeRO-3"></a>5. ZeRO-3</h2><p>即使将O，G均分到其他卡上，仍放不下所有参数，甚至对于70B的模型，其模型参数量达到140GB，光模型参数一张卡就已经放不下了。因此需要将P也切分分配到其他卡上。</p>
+<p>在ZeRO-3场景下，由于单卡缺少完整的参数，因此一张卡在正向传播过程中就需要进行通信了。<br>ZeRO-3中对每一层进行了切分，因此在每一层计算时均需要进行一次All-Gather完成该层的计算，然后在计算完后，丢弃同步过来的P。</p>
+<p>核心流程：</p>
+<ol>
+<li><p><strong>前向传播</strong>：水位 = $((1/8)P + (1/8)O) + A$<br>1.1 All-Gather当前层的参数<br>1.2 计算当前层的激活值<br>1.3 丢弃同步过来的层参数<br>1.4 重复上述步骤直到全部层计算完毕</p>
 </li>
-<li><strong>Qwen 系列 (阿里通义千问)</strong>：<ul>
-<li><strong>Qwen-7B / 14B / 32B / 72B</strong>（国产模型标杆，32B 是平衡性能与显存的典型）。</li>
-</ul>
+<li><p><strong>反向传播</strong>：水位 = $((1/8)P + (1/8)O) + A + (1/8)G$<br>2.1 All-Gather当前层的参数<br>2.2 计算当前层的梯度<br>2.3 丢弃当前层的激活值与同步过来的层参数<br>2.4 Reduce-Scatter当前层的梯度<br>2.5 重复上述步骤直到全部层计算完毕</p>
 </li>
-<li><strong>DeepSeek 系列 (深度求索)</strong>：<ul>
-<li><strong>DeepSeek-V2 / V3</strong>（以 MoE 架构著称）。</li>
-</ul>
-</li>
-<li><strong>Mistral / Mixtral (Mistral AI)</strong>：<ul>
-<li><strong>Mistral-7B</strong></li>
-<li><strong>Mixtral-8x7B</strong>（MoE 架构的先驱）。</li>
-</ul>
+<li><p><strong>参数更新</strong>：水位：更新前 $((1/8)P + (1/8)O) + (1/8)G$，更新后 $((1/8)P + (1/8)O)$<br>与ZeRO-1相同，各卡更新自己的P与O即可，更新完后，丢掉G</p>
 </li>
 </ol>
-<h3 id="1-3-训练时的显存账单"><a href="#1-3-训练时的显存账单" class="headerlink" title="1.3 训练时的显存账单"></a>1.3 训练时的显存账单</h3><p>根据第一章的分析，训练过程中的显存占用由 <strong>P（参数）+ G（梯度）+ O（优化器状态）+ A（激活值）</strong> 构成。</p>
-<h4 id="1-3-1-静态显存占用-P-G-O"><a href="#1-3-1-静态显存占用-P-G-O" class="headerlink" title="1.3.1 静态显存占用 (P + G + O)"></a>1.3.1 静态显存占用 (P + G + O)</h4><p>在主流的 <strong>Adam 混合精度训练</strong> 场景下，静态显存占用约为参数量 N 的 <strong>16 倍</strong>：</p>
-<ul>
-<li><strong>公式</strong>：P(2N) + G(2N) + O(12N) = 16N 字节。</li>
-<li><strong>32B 模型口算</strong>：32B * 16 = 512 GB。</li>
-<li><strong>8B 模型口算</strong>：8B * 16 = 128 GB。</li>
-</ul>
-<h4 id="1-3-2-动态显存占用-A"><a href="#1-3-2-动态显存占用-A" class="headerlink" title="1.3.2 动态显存占用 (A)"></a>1.3.2 动态显存占用 (A)</h4><p>动态显存与模型结构关联较大，且激活值难以精确计算。<br>比如，在MLP模型场景中，A的占用较少，可以不做重点讨论， 而对于 Transformer 场景，A 的占用却不能忽视，其中 Attention 的分数矩阵与序列长度呈平方增长</p>
-<p>以 7B 模型（$d=4096$，$h=32$，$4d=11008$，32 层），$B=1$，BF16 为例：</p>
-<div class="table-container">
+<h2 id="6-DeepSpeed"><a href="#6-DeepSpeed" class="headerlink" title="6. DeepSpeed"></a>6. DeepSpeed</h2><h3 id="6-1-DeepSpeed-是什么"><a href="#6-1-DeepSpeed-是什么" class="headerlink" title="6.1 DeepSpeed 是什么"></a>6.1 DeepSpeed 是什么</h3><p>DeepSpeed 是微软开发的<strong>分布式训练框架</strong>，上面讲的 ZeRO-1/2/3 正是由 DeepSpeed 团队提出的。DeepSpeed 将 ZeRO 论文中的理论工程化，提供了一套易用的训练加速库。</p>
+<p>简单理解：<strong>ZeRO 是论文/思想，DeepSpeed 是实现/框架</strong>。</p>
+<h3 id="6-2-核心能力"><a href="#6-2-核心能力" class="headerlink" title="6.2 核心能力"></a>6.2 核心能力</h3><div class="table-container">
 <table>
 <thead>
 <tr>
-<th style="text-align:left">场景</th>
-<th style="text-align:left">序列长度</th>
-<th style="text-align:left">激活值估算</th>
+<th>能力</th>
+<th>说明</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align:left">7B, B=1, S=2048</td>
-<td style="text-align:left">2K</td>
-<td style="text-align:left">~12-15 GB</td>
+<td>ZeRO-1/2/3</td>
+<td>上面已详细讲述，核心显存优化手段</td>
 </tr>
 <tr>
-<td style="text-align:left">7B, B=1, S=4096</td>
-<td style="text-align:left">4K</td>
-<td style="text-align:left">~35-40 GB</td>
+<td>ZeRO-Infinity</td>
+<td>将O/G甚至P卸载到CPU内存或NVMe磁盘，进一步突破显存瓶颈</td>
 </tr>
 <tr>
-<td style="text-align:left">7B, B=1, S=8192</td>
-<td style="text-align:left">8K</td>
-<td style="text-align:left">~100+ GB</td>
+<td>3D并行</td>
+<td>将数据并行（ZeRO）、张量并行、流水线并行组合使用</td>
+</tr>
+<tr>
+<td>混合精度训练</td>
+<td>FP16/BF16 + Loss Scaling，减少显存占用并加速计算</td>
+</tr>
+<tr>
+<td>梯度累积</td>
+<td>模拟大batch size，适合单卡显存不足以一次处理大批次数据的场景</td>
 </tr>
 </tbody>
 </table>
 </div>
+<h3 id="6-3-ZeRO-Infinity"><a href="#6-3-ZeRO-Infinity" class="headerlink" title="6.3 ZeRO-Infinity"></a>6.3 ZeRO-Infinity</h3><p>ZeRO-1/2/3 已经将显存分摊到多张GPU上，但当模型足够大（如 175B+），即使多卡分摊仍然放不下。ZeRO-Infinity 的思路是<strong>把不急需的数据暂时搬到更便宜但更慢的存储上</strong>：</p>
 <ul>
-<li><strong>Infra 视角</strong>：即便显存能装下 512 GB 的静态部分，如果剩余显存不足以容纳 A，依然会触发 OOM。</li>
+<li><strong>优化器状态</strong> → 卸载到 CPU 内存（速度较快）</li>
+<li><strong>参数/梯度</strong> → 必要时卸载到 NVMe 磁盘（速度较慢，但容量大）</li>
 </ul>
-<h4 id="1-3-3-结论：显存峰值"><a href="#1-3-3-结论：显存峰值" class="headerlink" title="1.3.3 结论：显存峰值"></a>1.3.3 结论：显存峰值</h4><ul>
-<li><strong>峰值时刻</strong>：反向传播起始瞬间。</li>
-<li><strong>峰值公式</strong>：Peak Memory = 16N + A。</li>
-<li><strong>核心矛盾</strong>：对于 32B 模型，单卡 80 GB 显存甚至连其 1/6 的静态数据都装不下，这是分布式训练的根本动机。</li>
-</ul>
-<h2 id="2-常见显卡类型"><a href="#2-常见显卡类型" class="headerlink" title="2. 常见显卡类型"></a>2. 常见显卡类型</h2><div class="table-container">
+<p>代价是训练速度会下降（CPU/NVMe 与 GPU 之间的数据搬运有延迟），但好处是<strong>用时间换空间</strong>，使得在有限GPU资源下训练超大模型成为可能。</p>
+<h3 id="6-4-DeepSpeed-配置简介"><a href="#6-4-DeepSpeed-配置简介" class="headerlink" title="6.4 DeepSpeed 配置简介"></a>6.4 DeepSpeed 配置简介</h3><p>DeepSpeed 通过一个 <code>ds_config.json</code> 文件控制训练行为，核心配置项：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;train_batch_size&quot;</span><span class="punctuation">:</span> <span class="number">128</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;gradient_accumulation_steps&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;optimizer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;type&quot;</span><span class="punctuation">:</span> <span class="string">&quot;Adam&quot;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;params&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;lr&quot;</span><span class="punctuation">:</span> <span class="number">1e-4</span> <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;zero_optimization&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;stage&quot;</span><span class="punctuation">:</span> <span class="number">2</span><span class="punctuation">,</span>                  <span class="comment">// 1/2/3 对应 ZeRO-1/2/3</span></span><br><span class="line">    <span class="attr">&quot;offload_optimizer&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;device&quot;</span><span class="punctuation">:</span> <span class="string">&quot;cpu&quot;</span>            <span class="comment">// ZeRO-Infinity: 将优化器状态卸载到CPU</span></span><br><span class="line">    <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">    <span class="attr">&quot;offload_param&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">      <span class="attr">&quot;device&quot;</span><span class="punctuation">:</span> <span class="string">&quot;nvme&quot;</span>           <span class="comment">// ZeRO-Infinity: 将参数卸载到NVMe</span></span><br><span class="line">    <span class="punctuation">&#125;</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;bf16&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span> <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="literal"><span class="keyword">true</span></span> <span class="punctuation">&#125;</span>    <span class="comment">// 混合精度</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+<p>关键配置项就一个：<code>zero_optimization.stage</code>，设为 1/2/3 对应使用 ZeRO-1/2/3。配合 <code>offload_*</code> 即可开启 ZeRO-Infinity。</p>
+<h3 id="6-5-ZeRO-1-2-3-总结对比"><a href="#6-5-ZeRO-1-2-3-总结对比" class="headerlink" title="6.5 ZeRO-1/2/3 总结对比"></a>6.5 ZeRO-1/2/3 总结对比</h3><div class="table-container">
 <table>
 <thead>
 <tr>
-<th style="text-align:left">显卡型号</th>
-<th style="text-align:left">显存容量</th>
-<th style="text-align:left">算力架构</th>
-<th style="text-align:left">备注</th>
+<th></th>
+<th>ZeRO-1</th>
+<th>ZeRO-2</th>
+<th>ZeRO-3</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td style="text-align:left"><strong>NVIDIA H100</strong></td>
-<td style="text-align:left">80 GB</td>
-<td style="text-align:left">Hopper</td>
-<td style="text-align:left">当前大模型训练的最强主力</td>
+<td>切分对象</td>
+<td>O</td>
+<td>O + G</td>
+<td>O + G + P</td>
 </tr>
 <tr>
-<td style="text-align:left"><strong>NVIDIA A100</strong></td>
-<td style="text-align:left">40 GB / 80 GB</td>
-<td style="text-align:left">Ampere</td>
-<td style="text-align:left">曾经的标杆，目前仍广泛使用</td>
+<td>单卡静态显存</td>
+<td>$P + (1/N)O$</td>
+<td>$P + (1/N)(O+G)$</td>
+<td>$(1/N)(P+O+G)$</td>
 </tr>
 <tr>
-<td style="text-align:left"><strong>NVIDIA V100</strong></td>
-<td style="text-align:left">16 GB / 32 GB</td>
-<td style="text-align:left">Volta</td>
-<td style="text-align:left">较老机型，单卡几乎跑不动 7B</td>
+<td>通信开销</td>
+<td>低</td>
+<td>中</td>
+<td>高</td>
 </tr>
 <tr>
-<td style="text-align:left"><strong>RTX 4090</strong></td>
-<td style="text-align:left">24 GB</td>
-<td style="text-align:left">Ada Lovelace</td>
-<td style="text-align:left">消费级旗舰，常用于单卡微调或实验</td>
+<td>训练速度影响</td>
+<td>几乎无</td>
+<td>较小</td>
+<td>明显下降（频繁All-Gather）</td>
 </tr>
 <tr>
-<td style="text-align:left"><strong>昇腾 910B</strong></td>
-<td style="text-align:left">64 GB</td>
-<td style="text-align:left">DaVinci</td>
-<td style="text-align:left">国产算力标杆，显存介于 A100 40G 与 80G 之间</td>
+<td>适用场景</td>
+<td>模型刚好放不下的情况</td>
+<td>需要更大batch的场景</td>
+<td>模型极大，单卡放不下P的场景</td>
 </tr>
 </tbody>
 </table>
 </div>
-<h2 id="3-单卡限制与多卡需求"><a href="#3-单卡限制与多卡需求" class="headerlink" title="3. 单卡限制与多卡需求"></a>3. 单卡限制与多卡需求</h2><p>通过对比模型账单与硬件规格，可以得到下面的结论：</p>
-<h3 id="3-1-单卡场景"><a href="#3-1-单卡场景" class="headerlink" title="3.1 单卡场景"></a>3.1 单卡场景</h3><ul>
-<li>训练一个 32B 模型需要 512 GB 静态显存。</li>
-<li>即便是最强的 H100 (80 GB)，也只能装下其 15% 的静态数据。</li>
-<li><strong>直观结论</strong>：单张显卡连模型参数都存不下，更别提运行了。</li>
-</ul>
-<h3 id="3-2-多卡场景"><a href="#3-2-多卡场景" class="headerlink" title="3.2 多卡场景"></a>3.2 多卡场景</h3><ul>
-<li>目前单机可以安装8张显卡。如果我们有一台 8 卡 H100机器（8 * 80 GB = 640 GB），总显存量是大于 512 GB 的。</li>
-<li><strong>直观结论</strong>：多卡可以容纳32B模型的静态参数，但实际训练还需要考虑模型的切分方式与激活值部分。</li>
-</ul>
-<h3 id="3-3-后续方向"><a href="#3-3-后续方向" class="headerlink" title="3.3 后续方向"></a>3.3 后续方向</h3><p>既然单卡存不下但多卡总量够，接下来的核心工作就是如何将模型状态（参数、梯度、优化器状态）分布到多张显卡上。<br>目前主流的切分思路包括：</p>
+<p>选型原则：<strong>能用低stage就不用高stage</strong>，通信开销随stage递增，速度随stage递减。</p>
+<h3 id="6-6-使用示例"><a href="#6-6-使用示例" class="headerlink" title="6.6 使用示例"></a>6.6 使用示例</h3><p>一个最简的 DeepSpeed 训练流程只需要 <strong>三步</strong>：写模型、写配置、启动。</p>
+<h4 id="第一步：训练脚本-train-py"><a href="#第一步：训练脚本-train-py" class="headerlink" title="第一步：训练脚本 train.py"></a>第一步：训练脚本 <code>train.py</code></h4><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> deepspeed</span><br><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn</span><br><span class="line"><span class="keyword">from</span> torch.utils.data <span class="keyword">import</span> DataLoader, TensorDataset</span><br><span class="line"></span><br><span class="line"><span class="comment"># 1. 定义模型（以简单MLP为例）</span></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">SimpleModel</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, hidden_dim=<span class="number">1024</span></span>):</span><br><span class="line">        <span class="built_in">super</span>().__init__()</span><br><span class="line">        <span class="variable language_">self</span>.net = nn.Sequential(</span><br><span class="line">            nn.Linear(hidden_dim, hidden_dim),</span><br><span class="line">            nn.ReLU(),</span><br><span class="line">            nn.Linear(hidden_dim, hidden_dim),</span><br><span class="line">            nn.ReLU(),</span><br><span class="line">            nn.Linear(hidden_dim, <span class="number">1</span>),</span><br><span class="line">        )</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">        <span class="keyword">return</span> <span class="variable language_">self</span>.net(x).squeeze()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 2. 构造模型、数据、损失函数</span></span><br><span class="line">model = SimpleModel()</span><br><span class="line">dataset = TensorDataset(torch.randn(<span class="number">10000</span>, <span class="number">1024</span>), torch.randn(<span class="number">10000</span>))</span><br><span class="line">loader = DataLoader(dataset, batch_size=<span class="number">32</span>)</span><br><span class="line"></span><br><span class="line">criterion = nn.MSELoss()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 3. DeepSpeed 初始化（替代原来的 optimizer = ... ）</span></span><br><span class="line"><span class="comment">#    engine 就是 deepspeed 管理后的模型，包含了优化器、调度器等</span></span><br><span class="line">model_engine, optimizer, _, _ = deepspeed.initialize(</span><br><span class="line">    model=model,</span><br><span class="line">    model_parameters=model.parameters(),</span><br><span class="line">    config=<span class="string">&quot;ds_config.json&quot;</span>,       <span class="comment"># 配置文件路径</span></span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"><span class="comment"># 4. 训练循环（和普通PyTorch几乎一样，区别只在 loss.backward → engine.backward）</span></span><br><span class="line">model_engine.train()</span><br><span class="line"><span class="keyword">for</span> epoch <span class="keyword">in</span> <span class="built_in">range</span>(<span class="number">3</span>):</span><br><span class="line">    <span class="keyword">for</span> batch_x, batch_y <span class="keyword">in</span> loader:</span><br><span class="line">        batch_x, batch_y = batch_x.to(model_engine.device), batch_y.to(model_engine.device)</span><br><span class="line"></span><br><span class="line">        outputs = model_engine(batch_x)</span><br><span class="line">        loss = criterion(outputs, batch_y)</span><br><span class="line"></span><br><span class="line">        model_engine.backward(loss)        <span class="comment"># 替代 loss.backward()</span></span><br><span class="line">        model_engine.step()                <span class="comment"># 替代 optimizer.step()</span></span><br></pre></td></tr></table></figure>
+<p>对比普通 PyTorch 训练，改动只有两处：</p>
 <ul>
-<li><strong>ZeRO/DeepSpeed</strong>：侧重于切分优化器状态和梯度。</li>
-<li><strong>FSDP</strong>：进一步切分模型参数。</li>
-<li><strong>3D 并行 (Megatron)</strong>：结合张量并行与流水并行。<br>这些会在后续的文章讲解。</li>
+<li>用 <code>deepspeed.initialize()</code> 替代手动创建 optimizer</li>
+<li>用 <code>model_engine.backward()</code> + <code>model_engine.step()</code> 替代 <code>loss.backward()</code> + <code>optimizer.step()</code></li>
 </ul>
+<h4 id="第二步：配置文件-ds-config-json"><a href="#第二步：配置文件-ds-config-json" class="headerlink" title="第二步：配置文件 ds_config.json"></a>第二步：配置文件 <code>ds_config.json</code></h4><figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="punctuation">&#123;</span></span><br><span class="line">  <span class="attr">&quot;train_batch_size&quot;</span><span class="punctuation">:</span> <span class="number">256</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;gradient_accumulation_steps&quot;</span><span class="punctuation">:</span> <span class="number">1</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;zero_optimization&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;stage&quot;</span><span class="punctuation">:</span> <span class="number">2</span></span><br><span class="line">  <span class="punctuation">&#125;</span><span class="punctuation">,</span></span><br><span class="line">  <span class="attr">&quot;bf16&quot;</span><span class="punctuation">:</span> <span class="punctuation">&#123;</span></span><br><span class="line">    <span class="attr">&quot;enabled&quot;</span><span class="punctuation">:</span> <span class="string">&quot;auto&quot;</span></span><br><span class="line">  <span class="punctuation">&#125;</span></span><br><span class="line"><span class="punctuation">&#125;</span></span><br></pre></td></tr></table></figure>
+<p>就一个关键配置：<code>stage: 2</code> 表示使用 ZeRO-2。想切 ZeRO-3 改成 <code>3</code> 即可。</p>
+<h4 id="第三步：启动命令"><a href="#第三步：启动命令" class="headerlink" title="第三步：启动命令"></a>第三步：启动命令</h4><figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># 单机多卡（最常见）</span></span><br><span class="line">deepspeed train.py --deepspeed_config ds_config.json</span><br><span class="line"></span><br><span class="line"><span class="comment"># 多机多卡</span></span><br><span class="line">deepspeed --num_gpus=8 train.py --deepspeed_config ds_config.json</span><br><span class="line"></span><br><span class="line"><span class="comment"># 等价于 torchrun 的用法</span></span><br><span class="line">deepspeed --num_nodes=2 --num_gpus_per_node=8 train.py --deepspeed_config ds_config.json</span><br></pre></td></tr></table></figure>
+<p><code>deepspeed</code> 命令会自动处理多进程启动、GPU分配、通信组初始化等，替代原来的 <code>torchrun</code> 或 <code>python -m torch.distributed.launch</code>。</p>
+<h4 id="与-Hugging-Face-集成（实战更常用）"><a href="#与-Hugging-Face-集成（实战更常用）" class="headerlink" title="与 Hugging Face 集成（实战更常用）"></a>与 Hugging Face 集成（实战更常用）</h4><p>实际工作中更常见的是用 Hugging Face Transformers + DeepSpeed，只需要在 <code>TrainingArguments</code> 中加一行：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> transformers <span class="keyword">import</span> TrainingArguments, Trainer</span><br><span class="line"></span><br><span class="line">training_args = TrainingArguments(</span><br><span class="line">    output_dir=<span class="string">&quot;./output&quot;</span>,</span><br><span class="line">    per_device_train_batch_size=<span class="number">16</span>,</span><br><span class="line">    <span class="comment"># 只需加这一行，指向配置文件即可</span></span><br><span class="line">    deepspeed=<span class="string">&quot;ds_config.json&quot;</span>,</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">trainer = Trainer(</span><br><span class="line">    model=model,</span><br><span class="line">    args=training_args,</span><br><span class="line">    train_dataset=train_dataset,</span><br><span class="line">)</span><br><span class="line">trainer.train()</span><br></pre></td></tr></table></figure>
+<p>Hugging Face 内部会自动调用 <code>deepspeed.initialize()</code>，不需要手动管理 engine。</p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/" data-id="cuidG1bZv6mLqIa24QxhGcrrg" data-title="大模型显存物理边界" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" data-id="cuidRToKwgUAtyfgZvxd0Vj0w" data-title="ZeRO-123和Deepspeed" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1264,10 +1277,10 @@
 
 
   
-    <article id="post-分布式训练1-训练基础知识" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+    <article id="post-分布式训练5-FSDP" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
-    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:44:29.240Z" itemprop="datePublished">2026-05-10</time>
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" class="article-date">
+  <time class="dt-published" datetime="2026-05-09T23:10:00.000Z" itemprop="datePublished">2026-05-10</time>
 </a>
     
   <div class="article-category">
@@ -1282,7 +1295,7 @@
         
   
     <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/">训练基础</a>
+      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/">FSDP</a>
     </h1>
   
 
@@ -1290,136 +1303,39 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="训练基础"><a href="#训练基础" class="headerlink" title="训练基础"></a>训练基础</h1><p>本文只考虑神经网络的训练</p>
-<h2 id="1-神经网络的物理本质（Infra-视角）"><a href="#1-神经网络的物理本质（Infra-视角）" class="headerlink" title="1. 神经网络的物理本质（Infra 视角）"></a>1. 神经网络的物理本质（Infra 视角）</h2><ul>
-<li><strong>本质</strong>：一系列张量（Tensor）的连续变换。数据以向量形式输入，经过层层矩阵运算，最终得到输出。</li>
-<li><strong>MLP 示例</strong>：最基础的结构 y = Wx + b。<ul>
-<li><strong>参数 (P)</strong>：即权重 $W$。Infra 侧关注其存储分布（单卡还是多卡）。</li>
-<li><strong>激活值 (A)</strong>：计算过程中产生的中间变量。Infra 侧关注其显存占用，是前向传播的水位线。</li>
-<li><strong>算子</strong>：如激活函数、Softmax。关注其计算开销与对显存碎片的贡献。</li>
-</ul>
-</li>
-</ul>
-<h2 id="2-训练的三大阶段与显存占用"><a href="#2-训练的三大阶段与显存占用" class="headerlink" title="2. 训练的三大阶段与显存占用"></a>2. 训练的三大阶段与显存占用</h2><h3 id="2-1-显存账单核心成员"><a href="#2-1-显存账单核心成员" class="headerlink" title="2.1 显存账单核心成员"></a>2.1 显存账单核心成员</h3><ul>
-<li><strong>参数 (P)</strong>：模型权重。如果以FP16格式，占用 $2N$ 字节。</li>
-<li><strong>梯度 (G)</strong>：反向传播产生。如果以FP16格式，占用 $2N$ 字节。</li>
-<li><strong>优化器状态 (O)</strong>：以 Adam 为例，包含一阶动量（历史梯度的滑动平均，加速收敛）、二阶动量（历史梯度平方的滑动平均，自适应调整学习率）、FP32 Master Weights（保存一份高精度参数，防止精度损失），共占用 $12N$ 字节（$4N$+$4N$+$4N$）。</li>
-<li><strong>激活值 (A)</strong>：前向传播产生，随 Batch Size 和序列长度线性增长。</li>
-</ul>
-<p>常见训练方式：</p>
+        <h1 id="FSDP"><a href="#FSDP" class="headerlink" title="FSDP"></a>FSDP</h1><p>ZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。</p>
+<h2 id="FSDP核心机制"><a href="#FSDP核心机制" class="headerlink" title="FSDP核心机制"></a>FSDP核心机制</h2><p>FSDP = Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片与重组机制，它将模型参数、梯度和优化器状态均匀分布在所有 GPU 上。本质是<strong>“用通讯换显存”</strong>。</p>
+<p>FSDP的分片原理：<br>通过 auto_wrap_policy 标记需要分片的层（通常是 Transformer Block），将每层的参数展平后均匀切分到各卡上。未被标记的层同样展平切分。<br>Transformer模型的层结构规整，适合按层做统一的分片处理。</p>
+<p>FSDP的重组原理：<br>先将未被标记的层 All-Gather 汇聚完整，然后逐层 All-Gather标记层的参数进行计算，算完立即丢弃，保证任意时刻只有一层是完整的</p>
+<p>Qwen2.5-8B举例<br>[Embedding] [decoder] … [decoder] [RMSNorm] [LM Head]<br>                32<em>decoder layer<br>分片：(2卡)<br>GPU0：[(Embedding+RMSNorm+LM Head)(1/2)] [decoder(1/2)] … [decoder(1/2)]<br>                                                32</em>decoder layer<br>GPU1：[(Embedding+RMSNorm+LM Head)(1/2)] [decoder(1/2)] … [decoder(1/2)]<br>                                                32<em>decoder layer<br>重组：<br>首先汇聚未被标记的部分<br>GPU0：[Embedding] [decoder(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第一层<br>GPU0：[Embedding] [decoder1(完整)] [decoder2(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(完整)] [decoder2(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第二层<br>GPU0：[Embedding] [decoder1(1/2)] [decoder2(完整)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1/2)] [decoder2(完整)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>。。。<br>汇聚最后一层<br>GPU0：[Embedding] [decoder1(1/2)] [decoder2(1/2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1/2)] [decoder2(1/2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32*decoder layer<br>最后恢复成分片状态。</p>
+<p>整体静态参数最高水位：(1/N)(P+G+O)</p>
+<p>代码示例：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    sharding_strategy=ShardingStrategy.FULL_SHARD,</span><br><span class="line">    auto_wrap_policy=transformer_auto_wrap_policy,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    device_id=torch.cuda.current_device(),</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">核心就三个参数：</span><br><span class="line">- sharding_strategy：分片策略（FULL_SHARD = ZeRO-3 级别）</span><br><span class="line">- auto_wrap_policy：哪些层做分片</span><br><span class="line">- mixed_precision：混合精度</span><br></pre></td></tr></table></figure></p>
+<p>FSDP与ZeRO-3对比</p>
 <ul>
-<li><strong>纯 FP32 训练</strong>（老旧方法）：$P(4N) + G(4N) + O(8N) = 16N$。</li>
-<li><strong>混合精度训练</strong>（主流）：$P(2N) + G(2N) + O(12N) = 16N$。</li>
+<li>FSDP 支持选择性分片，ZeRO-3 全切</li>
+<li>ZeRO-3 有 ZeRO-Infinity（NVMe offload），FSDP 只有 CPU offload</li>
 </ul>
-<h3 id="2-2-常见数据类型"><a href="#2-2-常见数据类型" class="headerlink" title="2.2 常见数据类型"></a>2.2 常见数据类型</h3><div class="table-container">
-<table>
-<thead>
-<tr>
-<th>数据类型</th>
-<th>字节数</th>
-<th>符号位</th>
-<th>指数位</th>
-<th>尾数位</th>
-<th>备注</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>FP8</td>
-<td>1</td>
-<td>1</td>
-<td>4</td>
-<td>3</td>
-<td>1 字节，极致压缩与推理场景，精度损失较大</td>
-</tr>
-<tr>
-<td>FP16</td>
-<td>2</td>
-<td>1</td>
-<td>5</td>
-<td>10</td>
-<td>2 字节，训练/推理常见，兼顾计算速度与精度</td>
-</tr>
-<tr>
-<td>BF16</td>
-<td>2</td>
-<td>1</td>
-<td>8</td>
-<td>7</td>
-<td>2 字节，动态范围与 FP32 相同（同 8 位指数），运算精度低于 FP16，但溢出风险更低，硬件适配好</td>
-</tr>
-<tr>
-<td>FP32</td>
-<td>4</td>
-<td>1</td>
-<td>8</td>
-<td>23</td>
-<td>4 字节，标准单精度浮点，与 BF16 取值范围一致，可无损转换为 BF16 参与快速计算</td>
-</tr>
-<tr>
-<td>TF32</td>
-<td>4</td>
-<td>1</td>
-<td>8</td>
-<td>10</td>
-<td>仅作为 TensorCore 内部计算格式，不用于显存存储。让 FP32 任务在不改代码的前提下获得近乎 FP16 的速度。</td>
-</tr>
-</tbody>
-</table>
-</div>
-<p><strong>补充说明：</strong></p>
-<ul>
-<li>BF16 与 FP32 拥有完全一致的指数位（8 位），所以理论上 FP32 范围内的数都能“无溢出”直接转为 BF16 存储/计算，只损失尾数精度。PyTorch 等训练框架广泛支持 FP32↔BF16 自动转换，方便在硬件加速下运算。</li>
-<li>TF32 (TensorFloat-32) 是 NVIDIA 新硬件上专为深度学习 TensorCore 设计的数据格式，精度介于 FP16 与 FP32 之间，加速大规模矩阵乘。</li>
-<li>选择数据类型时需权衡精度/动态范围/算力/内存，实际项目中常见混合精度与动态切换方案。</li>
-</ul>
-<h3 id="2-3-训练阶段显存占用情况"><a href="#2-3-训练阶段显存占用情况" class="headerlink" title="2.3 训练阶段显存占用情况"></a>2.3 训练阶段显存占用情况</h3><ol>
-<li><strong>前向传播</strong>：水位 = $(P + O) + A$<ul>
-<li><em>过程</em>：随着层数加深，激活值 $A$ 像叠罗汉一样堆积。</li>
-<li><em>终态</em>：到达前向传播结束，持有全量激活值。</li>
-</ul>
-</li>
-<li><strong>反向传播</strong>：水位 = $(P + O) + A + G$<ul>
-<li><em>过程</em>：显存峰值在这个阶段。梯度 $G$ 在产生，激活值 $A$ 在逐层释放。</li>
-<li><em>峰值</em>：出现在反向传播开始的瞬间，此时 $A$ 还没开始释放，而第一层梯度 $G$ 已经产生。</li>
-</ul>
-</li>
-<li><strong>参数更新</strong>：水位 = $(P + O) + G$<ul>
-<li><em>过程</em>：此时 $A$ 已完全释放。优化器利用 $G$ 更新 $O$ 和 $P$。</li>
-<li><em>终态</em>：更新完毕，清空 $G$。</li>
-</ul>
-</li>
-<li><strong>休整期</strong>：水位 = $P + O$<ul>
-<li><em>状态</em>：显存回到最低水位，等待下一轮 Batch。</li>
-</ul>
-</li>
-</ol>
-<p>注：在第一轮迭代（Step 0）的起始点，显存仅占用 $P$；随着第一次 <code>optimizer.step()</code> 执行，优化器状态 $O$ 被初始化并从此常驻显存。</p>
-<h2 id="3-Transformer：大模型并行的结构基础"><a href="#3-Transformer：大模型并行的结构基础" class="headerlink" title="3. Transformer：大模型并行的结构基础"></a>3. Transformer：大模型并行的结构基础</h2><h3 id="3-1-Attention-机制与显存瓶颈"><a href="#3-1-Attention-机制与显存瓶颈" class="headerlink" title="3.1 Attention 机制与显存瓶颈"></a>3.1 Attention 机制与显存瓶颈</h3><ul>
-<li><strong>QKV 逻辑</strong>：Q(找什么)与 K(有什么)做矩阵乘法算相关性，再作用于 V(内容) 得到输出。</li>
-<li><strong>显存瓶颈</strong>：计算过程中会产生一个 $(Seq, Seq)$ 大小的中间矩阵。</li>
-<li><strong>结论</strong>：显存占用随序列长度 $S$ 的<strong>平方</strong>增长。这是长文本训练（如 32k+）容易 OOM 的根本原因。<h3 id="3-2-堆叠架构与并行友好性"><a href="#3-2-堆叠架构与并行友好性" class="headerlink" title="3.2 堆叠架构与并行友好性"></a>3.2 堆叠架构与并行友好性</h3></li>
-<li><strong>结构</strong>：由多个完全相同的 Block（Attention + MLP）纵向堆叠而成。</li>
-<li><strong>Infra 意义</strong>：<ul>
-<li><strong>好切分</strong>：这种“乐高式”结构是按层切分（FSDP/流水并行）的物理基础。</li>
-<li><strong>算力压榨</strong>：全是矩阵乘法，天然适配 GPU TensorCore，比 RNN 这种串行结构更容易跑满算力。</li>
-</ul>
-</li>
-</ul>
-<h2 id="4-PyTorch-训练实战（以-MLP-为例）"><a href="#4-PyTorch-训练实战（以-MLP-为例）" class="headerlink" title="4. PyTorch 训练实战（以 MLP 为例）"></a>4. PyTorch 训练实战（以 MLP 为例）</h2><h3 id="4-1-环境与模型定义"><a href="#4-1-环境与模型定义" class="headerlink" title="4.1 环境与模型定义"></a>4.1 环境与模型定义</h3><ul>
-<li><strong>依赖</strong>：PyTorch 核心库。</li>
-<li><strong>MLP 模型定义示例</strong>：2 个隐藏层为例（全连接），包含模型类与 forward 函数——<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">MLP</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, input_dim, hidden_dim1, hidden_dim2, output_dim</span>):</span><br><span class="line">        <span class="built_in">super</span>().__init__()</span><br><span class="line">        <span class="variable language_">self</span>.fc1 = nn.Linear(input_dim, hidden_dim1)</span><br><span class="line">        <span class="variable language_">self</span>.relu1 = nn.ReLU()</span><br><span class="line">        <span class="variable language_">self</span>.fc2 = nn.Linear(hidden_dim1, hidden_dim2)</span><br><span class="line">        <span class="variable language_">self</span>.relu2 = nn.ReLU()</span><br><span class="line">        <span class="variable language_">self</span>.fc3 = nn.Linear(hidden_dim2, output_dim)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">        x = <span class="variable language_">self</span>.relu1(<span class="variable language_">self</span>.fc1(x))</span><br><span class="line">        x = <span class="variable language_">self</span>.relu2(<span class="variable language_">self</span>.fc2(x))</span><br><span class="line">        x = <span class="variable language_">self</span>.fc3(x)</span><br><span class="line">        <span class="keyword">return</span> x</span><br></pre></td></tr></table></figure></li>
-<li><em>Infra 意义</em>：<code>forward</code> 的执行顺序影响激活值的产生与释放。</li>
-</ul>
-<h3 id="4-2-数据准备"><a href="#4-2-数据准备" class="headerlink" title="4.2 数据准备"></a>4.2 数据准备</h3><ul>
-<li>本节数据准备部分不再提供代码，实际场景中可根据任务生成数据集及 DataLoader。</li>
-<li><em>Infra 意义</em>：在真实训练中，合理利用如 <code>num_workers</code> 和 <code>pin_memory</code> 等参数可以有效加速数据传输到 GPU，提升整体数据面性能。</li>
-</ul>
-<h3 id="4-3-核心训练-Loop"><a href="#4-3-核心训练-Loop" class="headerlink" title="4.3 核心训练 Loop"></a>4.3 核心训练 Loop</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> data, target <span class="keyword">in</span> train_loader:</span><br><span class="line">    <span class="comment"># 1. 梯度清零：防止上一个 Batch 的梯度累加</span></span><br><span class="line">    optimizer.zero_grad() </span><br><span class="line"></span><br><span class="line">    <span class="comment"># 2. 前向传播：计算输出，显存水位升至 P + A</span></span><br><span class="line">    output = model(data)</span><br><span class="line">    loss = criterion(output, target)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 3. 反向传播：计算梯度，显存到达峰值 P + A + G</span></span><br><span class="line">    <span class="comment"># 分布式场景下，此处触发 NCCL All-Reduce 进行梯度同步</span></span><br><span class="line">    loss.backward() </span><br><span class="line"></span><br><span class="line">    <span class="comment"># 4. 参数更新：利用梯度更新参数，显存水位 P + G + O</span></span><br><span class="line">    <span class="comment"># 执行完后，本轮的 A 和 G 被释放，显存回落至 P + O</span></span><br><span class="line">    optimizer.step() </span><br></pre></td></tr></table></figure>
+<h2 id="FSDP优化策略"><a href="#FSDP优化策略" class="headerlink" title="FSDP优化策略"></a>FSDP优化策略</h2><h3 id="CPU-offload"><a href="#CPU-offload" class="headerlink" title="CPU offload"></a>CPU offload</h3><p>问题：当模型较大时，在FSDP分片后，可能仍会出现(1/N)(P+G+O)在一张卡上放不下的情况。以 8B 模型 + 双卡 BF16 + AdamW 为例，单卡上 Adam 状态约 32GiB，加上参数和梯度，直接 OOM。</p>
+<p>解决方法：CPU offload策略。（核心是让O一直存储在CPU侧，O的比重最大，能减轻GPU显存的压力）<br>P：前向阶段：CPU——》GPU（CPU侧复制一份到GPU侧，算完会丢弃），反向阶段：CPU——》GPU（CPU侧复制一份到GPU侧，算完会丢弃）<br>G：反向阶段：在GPU生成。Optimizer step：GPU——》CPU（直接移动）<br>O：一直在CPU侧</p>
+<p>代价：CPU↔GPU 数据搬运有延迟，训练速度会下降</p>
+<p>启用方法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import CPUOffload</span><br><span class="line"></span><br><span class="line">FSDP(</span><br><span class="line">    model,</span><br><span class="line">    cpu_offload=CPUOffload(offload_params=True),</span><br><span class="line">    ...</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>实测数据（8B + 双卡 5090 32G）：</p>
+<p>┌──────────────┬───────────────┬─────────────────────────┐<br>│     配置     │ GPU 峰值显存  │          结果           │<br>├──────────────┼───────────────┼─────────────────────────┤<br>│ 无 Offload   │ ~48GiB（OOM） │ optim.step() 阶段爆显存 │<br>├──────────────┼───────────────┼─────────────────────────┤<br>│ 开启 Offload │ 15.51 GiB     │ 训练正常，50 步稳定     │<br>└──────────────┴───────────────┴─────────────────────────┘</p>
+<h3 id="Activation-Checkpointing"><a href="#Activation-Checkpointing" class="headerlink" title="Activation Checkpointing"></a>Activation Checkpointing</h3><p>问题：当激活值占用较大的场合，即使能存储P+G+O，但仍可能由于A导致OOM。</p>
+<p>解决方法：可以使用Activation Checkpointing方法。</p>
+<p>正常情况:前向传播会保存每一层的激活值，供反向传播使用。<br>Activation Checkpointing：不保存中间层的激活值，只保存该层的输入张量。反向传播到该层时，从保存的输入重新执行前向计算，得到所需的激活值。</p>
+<p>本质:以计算换显存。多花一遍前向计算的时间，省掉大量激活值的显存。</p>
+<p>代码实现：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (</span><br><span class="line">    checkpoint_wrapper, CheckpointImpl, apply_activation_checkpointing</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 在 FSDP 包装之后应用</span><br><span class="line">apply_activation_checkpointing(</span><br><span class="line">    model,</span><br><span class="line">    checkpoint_wrapper_fn=functools.partial(</span><br><span class="line">        checkpoint_wrapper, checkpoint_impl=CheckpointImpl.NO_REENTRANT</span><br><span class="line">    ),</span><br><span class="line">    check_fn=lambda submodule: isinstance(submodule, TransformerBlock)</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>实测数据<br>256 层模型的实验：<br>┌─────────┬────────────┬──────────────────────────────────┐<br>│  模式   │ 激活值占用  │               说明               │<br>├─────────┼────────────┼──────────────────────────────────┤<br>│ 不开 AC │ 776.12 MB  │ 保存了所有中间层的激活值           │<br>├─────────┼────────────┼──────────────────────────────────┤<br>│ 开启 AC │ 264.12 MB  │ 只保存每层输入，中间状态全部丢弃    │<br>└─────────┴────────────┴──────────────────────────────────┘<br>激活值减少了约 66%。</p>
+<h3 id="混合精度"><a href="#混合精度" class="headerlink" title="混合精度"></a>混合精度</h3><p>为了加快计算速度，可以使用混合精度的方式来训练。参数在GPU以 BF16 存储（省显存），计算也用 BF16（GPU加速），优化器内部保留 FP32 主副本（用于更新P，保数值稳定）。计算用 BF16（快+省），更新用 FP32（稳），两者各取所长。<br>┌─────────────────┬──────────┬──────────────────────────────┐<br>│                 │   FP32   │       BF16（混合精度）        │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ P               │ 4 bytes  │ 2 bytes                      │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ G               │ 4 bytes  │ 2 bytes                      │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ O（优化器状态）  │ 8 bytes  │ 12 bytes（保留 FP32 主副本）  │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ 每参数总计       │ 16 bytes │ 16 bytes                     │<br>└─────────────────┴──────────┴──────────────────────────────┘<br>虽然整体P+G+O没有变化，但是（1）P 和 G 的显存占用减半，使用CPU offload的情况下，显存只会用到P+G，这时显存占用就变少了。（2）P 和 G 的显存占用减半，A的位数也会减半，那整体显存的占用也会变少。</p>
+<p>代码示例：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    。。。</span><br><span class="line">)</span><br></pre></td></tr></table></figure></p>
+
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" data-id="cuidro2ZLZCVV7b_jl9FDR3h_" data-title="训练基础" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuidUEBGr7jnPhh2NSbDrepJc" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1431,10 +1347,10 @@
 
 
   
-    <article id="post-分布式训练0-目录" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+    <article id="post-分布式训练6-Megatron与3D并行" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
   <div class="article-meta">
-    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" class="article-date">
-  <time class="dt-published" datetime="2026-05-10T15:44:27.339Z" itemprop="datePublished">2026-05-10</time>
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/" class="article-date">
+  <time class="dt-published" datetime="2026-05-09T23:00:00.000Z" itemprop="datePublished">2026-05-10</time>
 </a>
     
   <div class="article-category">
@@ -1449,7 +1365,7 @@
         
   
     <h1 itemprop="name">
-      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/">分布式训练 Infra：目录与说明</a>
+      <a class="p-name article-title" href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/">Megatron 与 3D 并行</a>
     </h1>
   
 
@@ -1457,28 +1373,74 @@
     
     <div class="e-content article-entry" itemprop="articleBody">
       
-        <h1 id="分布式训练-Infra：目录与说明"><a href="#分布式训练-Infra：目录与说明" class="headerlink" title="分布式训练 Infra：目录与说明"></a>分布式训练 Infra：目录与说明</h1><h2 id="为什么要写这一组文章"><a href="#为什么要写这一组文章" class="headerlink" title="为什么要写这一组文章"></a>为什么要写这一组文章</h2><p>大模型训练时，单卡显存往往装不下完整的参数、梯度和优化器状态；即便勉强装下，单卡算力也不够用。因此，<strong>分布式训练</strong>已经成为当前大模型训练的默认形态：多卡、多机协同，在<strong>通信、计算、存储</strong>三条线上同时做权衡。</p>
-<p>工程上常见的并行与显存优化手段包括：<strong>ZeRO-1/2/3</strong>（常与 <strong>DeepSpeed</strong> 一起出现）、<strong>PyTorch FSDP</strong>，以及更大规模时常用的 <strong>Megatron 系 3D 并行</strong>（数据并行 / 张量并行 / 流水并行等组合）。</p>
-<h2 id="本文聚焦：Infra-侧关心什么"><a href="#本文聚焦：Infra-侧关心什么" class="headerlink" title="本文聚焦：Infra 侧关心什么"></a>本文聚焦：Infra 侧关心什么</h2><p>分布式训练 <strong>Infra</strong> 更关注两件事：<strong>训得快</strong>、<strong>训得稳</strong>。稳定性本质上也是为效率服务——少挂、少重跑，等价于提高有效训练时间。前提始终是：<strong>在既定硬件与网络条件下</strong>，把算力和显存吃满、吃稳。</p>
-<p>日常排查时，下面两类指标应放在核心位置：<strong>GPU 利用率</strong>（是否真的在算）、<strong>显存水位与峰值</strong>（是否触顶、是否碎片严重）。更细的吞吐、步时、MFU 等，放在「优化与评估」章节里展开。</p>
-<h2 id="阅读方式"><a href="#阅读方式" class="headerlink" title="阅读方式"></a>阅读方式</h2><ul>
-<li><strong>第 1～3 章</strong>：偏基础梳理，把概念和口径对齐，写作上会多举例、多做解释。</li>
-<li><strong>第 4～7 章</strong>：进阶重点章节，每一章采用「<strong>30 秒结论 + 展开 + 一条实践或数据</strong>」的结构，方便快速抓住核心要点。</li>
+        <h1 id="Megatron-与-3D-并行"><a href="#Megatron-与-3D-并行" class="headerlink" title="Megatron 与 3D 并行"></a>Megatron 与 3D 并行</h1><p>之前讲述了ZeRO-123,和FSDP。但是前述的方法在处理特别大模型的时候还是会存在一些问题，前述方法本质还是数据并行，每张卡会计算完整的模型。当模型达到一定程度时，ZeRO-3的都要All-Gather参数值，通信量大，效率较低。因此可以换一个思路，直接切模型本身，也就是TP和PP。</p>
+<h2 id="1-TP-Tensor-Parallelism-——-张量并行"><a href="#1-TP-Tensor-Parallelism-——-张量并行" class="headerlink" title="1. TP (Tensor Parallelism) —— 张量并行"></a>1. TP (Tensor Parallelism) —— 张量并行</h2><h3 id="1-1-核心逻辑：把矩阵乘法拆开"><a href="#1-1-核心逻辑：把矩阵乘法拆开" class="headerlink" title="1.1 核心逻辑：把矩阵乘法拆开"></a>1.1 核心逻辑：把矩阵乘法拆开</h3><p>TP 不是在层与层之间切分，而是在 <strong>层内部</strong> 把矩阵乘法（Matrix Multiplication）拆分到多张卡上并行计算。</p>
+<h4 id="1-MLP-层的切分（纵切-横切）"><a href="#1-MLP-层的切分（纵切-横切）" class="headerlink" title="1. MLP 层的切分（纵切 + 横切）"></a>1. MLP 层的切分（纵切 + 横切）</h4><p>这是 Megatron 最精妙的地方，为了尽量减少通信，它采用了“两层一组”的策略：</p>
+<ul>
+<li><strong>第一层（纵切/Column Parallel）</strong>：把权重矩阵 $W$ 按列切开。每张卡算出输出的一部分。</li>
+<li><strong>第二层（横切/Row Parallel）</strong>：把权重矩阵 $W’$ 按行切开。每张卡直接拿上一层的局部输出进行计算。</li>
+<li><strong>为什么这么做？</strong>：连续两个线性层如果用同一种切法，中间就必须通信。只有纵切+横切的组合能让第一层的输出直接作为第二层的输入，实现两层之间零通信。这是由矩阵运算的性质决定的，不是优化策略，而是唯一可行的方式</li>
 </ul>
-<h2 id="正文计划（章节列表）"><a href="#正文计划（章节列表）" class="headerlink" title="正文计划（章节列表）"></a>正文计划（章节列表）</h2><ol>
-<li><strong>训练基础知识</strong>：前向 / 反向、batch、梯度同步在分布式里意味着什么；为后文「为什么要切模型 / 切优化器状态」打底。</li>
-<li><strong>大模型与显存物理边界</strong>：参数量与精度下的显存账单（参数、梯度、优化器状态、激活等），单卡为何装不下、OOM 从哪里来。</li>
-<li><strong>大模型优化与评估指标</strong>：常用优化手段的分类；除 GPU / 显存利用率外，补充步时、吞吐、有效算力等如何一起看问题。</li>
-<li><strong>ZeRO-1/2/3、DeepSpeed 与实战</strong>：各阶段切的是什么、多付多少通信代价；结合可跑的最小示例或笔记。</li>
-<li><strong>FSDP 与实战</strong>：与 ZeRO 思路的对照、适用场景；对接现有 FSDP 环境与实验记录。</li>
-<li><strong>Megatron 与 3D 并行（实战或概念深化）</strong>：何时从 FSDP / ZeRO 走向 TP/PP/组合并行；若线上以用户脚本为主，本章以「原理 + 边界 + 平台侧关注点」为主。</li>
-<li><strong>综合优化实战</strong>：把通信与计算 overlap、混合精度、梯度累积、激活重算等放在同一张「组合拳」里，用至少一个真实瓶颈案例收束。</li>
+<p>实际例子：<br>X = [x1 x2 …]<br>W1 = [A B]<br>W2 = [C]<br>     [D]<br>X <em> W1 </em> W2 = [XA XB] <em> W2 = [XAC+XBD]<br>卡1: X </em> W1_Left <em> W2_top= [XAC]<br>卡2: X </em> W1_Right * W2_bottom = [XBD]<br>Reduce求和: [XAC+XBD]</p>
+<p>因此（纵切 + 横切）需要进行一次通信</p>
+<h4 id="2-Attention-层的切分"><a href="#2-Attention-层的切分" class="headerlink" title="2. Attention 层的切分"></a>2. Attention 层的切分</h4><ul>
+<li>同样利用了多头注意力（Multi-Head Attention）的特性，把不同的 <strong>Head</strong> 分给不同的显卡。</li>
+</ul>
+<h3 id="1-2-物理直觉"><a href="#1-2-物理直觉" class="headerlink" title="1.2 物理直觉"></a>1.2 物理直觉</h3><h4 id="1-通信频率极高"><a href="#1-通信频率极高" class="headerlink" title="1. 通信频率极高"></a>1. 通信频率极高</h4><ul>
+<li><strong>精确对比</strong>：<ul>
+<li><strong>DP</strong>：一轮迭代（Step）仅在反向传播结束时通信 <strong>1 次</strong>（同步梯度）。</li>
+<li><strong>TP</strong>：在<strong>每个 Transformer Block</strong> 的前向和反向过程中都要通信。以 32 层模型为例，一轮迭代需要进行 <strong>128 次</strong> All-Reduce 通信。</li>
+</ul>
+</li>
+<li><strong>结论</strong>：TP 的通信频率比 DP 高出两个数量级。这决定了 TP 必须部署在具有极高带宽的 <strong>机内 NVLink</strong> 环境下，跨机通信会成为严重的性能瓶颈。</li>
+</ul>
+<h4 id="2-权重格式（Megatron-格式）"><a href="#2-权重格式（Megatron-格式）" class="headerlink" title="2. 权重格式（Megatron 格式）"></a>2. 权重格式（Megatron 格式）</h4><ul>
+<li><strong>现象</strong>：你会发现 Megatron 的模型文件（Checkpoint）和 HuggingFace 的不一样。</li>
+<li><strong>原因</strong>：因为 TP 把权重矩阵物理上切碎了存到了不同的卡上。</li>
+<li><strong>实战</strong>：在平台上部署时，经常需要一个 <code>convert_checkpoint.py</code> 脚本，把 HF 格式转换成 Megatron 格式（按 TP 维度切分），或者反过来。</li>
+</ul>
+<h4 id="3-显存收益"><a href="#3-显存收益" class="headerlink" title="3. 显存收益"></a>3. 显存收益</h4><ul>
+<li>TP 不仅切分了参数 $P$，还切分了 <strong>激活值 (A)</strong>。</li>
+<li><strong>结论</strong>：如果你遇到了长文本导致的激活值 OOM，增加 TP 维度通常比增加 DP 维度更有效。<br>这也是TP相较于ZeRO-3的优势，同时“切分了”激活值。</li>
+</ul>
+<h2 id="PP"><a href="#PP" class="headerlink" title="PP"></a>PP</h2><p>PP 就是按层切模型，不同 GPU 负责不同的层，数据像流水线一样依次穿过各卡。<br>跟 TP 的区别：</p>
+<ul>
+<li>TP：每张卡算同一层的不同部分，算完要通信合并</li>
+<li>PP：每张卡算不同的层，算完把激活值传给下一张卡</li>
+</ul>
+<p>简单示例，一个 4 层的模型切成 2 个 stage：<br>GPU0: Layer0 → Layer1 → 激活值传给GPU1<br>GPU1: Layer2 → Layer3 → 得到最终输出</p>
+<p>通信特点：<br>1、计算之间有明显的先后顺序，因此PP会有气泡问题。<br>2、相邻卡之间为点对点通信。因此 PP可以跨机使用（InfiniBand 就行），这也是3D 并行中 PP 放在中间层、TP 必须在最内层的原因</p>
+<p>气泡问题：<br>时间 →<br>GPU0: [ F1 ] [ F2 ] [ F3 ] [    ] [    ] [    ] [    ] [    ] [    ] [ B1 ] [ B2 ] [ B3 ]<br>GPU1: [    ] [ F1 ] [ F2 ] [ F3 ] [    ] [    ] [    ] [    ] [ B1 ] [ B2 ] [ B3 ] [    ]<br>GPU2: [    ] [    ] [ F1 ] [ F2 ] [ F3 ] [    ] [    ] [ B1 ] [ B2 ] [ B3 ] [    ] [    ]<br>GPU3: [    ] [    ] [    ] [ F1 ] [ F2 ] [ F3 ] [ B1 ] [ B2 ] [ B3 ] [    ] [    ] [    ] </p>
+<p>图解说明：<br>其中F1、F2、F3 就是第 1、2、3 个 micro-batch 的前向传播。<br>B1、B2、B3 就是micro-batch 的反向传播（注意：B1，B2，B3的顺序可以调整）<br>第一列是第一时刻，GPU0开始计算F1。<br>第二时刻，GPU0开始计算F2。GPU1收到GPU0的F1数据计算的激活值，开始计算。<br>当GPU0把F1，F2，F3都计算完毕后，便暂时无可计算数据。<br>当GPU3算完F3数据后，开始进行反向传播。逐个计算B1，B2，B3。<br>在反向传播过程中又会产生新的气泡。</p>
+<p>解决方法：1F1B<br>核心思路：前向和反向交替进行，把气泡挤到首尾两端。<br>单卡示意图：<br>GPU0: [F1 F2 F3] [B1 F4] [B2 F5] [B3 F6] [B4 F7] [B5 F8] [B6 B7 B8]<br>                ^^^^^^^^  ^^^^^^^^  ^^^^^^^^  ^^^^^^^^  ^^^^^^^^<br>                稳态阶段：1个反向 + 1个前向，交替进行，几乎无气泡<br>分三个阶段：</p>
+<ol>
+<li>预热：先推几个前向把流水线填满（气泡在这） [F1 F2 F3]</li>
+<li>稳态：每做 1 个前向紧接着做 1 个反向（几乎没有气泡） [B1 F4] [B2 F5] [B3 F6] [B4 F7] [B5 F8]</li>
+<li>冷却：剩余的反向传播收尾（气泡在这） [B6 B7 B8]</li>
 </ol>
+<p>两卡示例：<br>GPU0: [F1] [F2] [  ] [B1] [F3] [B2] [F4] [B3] [  ] [B4]<br>GPU1: [  ] [F1] [B1] [F2] [B2] [F3] [B3] [F4] [B4] [  ]</p>
+<p>气泡只在首尾，中间的稳态阶段 GPU 基本没有空闲。micro-batch 越多，首尾气泡占比越小。</p>
+<h2 id="3D并行"><a href="#3D并行" class="headerlink" title="3D并行"></a>3D并行</h2><p>3D 并行就是把 TP、PP、DP 三种并行嵌套套在一起用，同时训练一个超大模型。需要合理配置这三者的值。</p>
+<p>嵌套顺序：<br>最外层：DP/ZeRO（跨机，All-Reduce，通信频率最低）<br>└─ 中间层：PP（跨机，相邻卡点对点，通信频率中等）<br>        └─ 最内层：TP（单机内，NVLink，通信频率最高）</p>
+<p>配置原则：<br>总 GPU 数 = TP × PP × DP，三个值相乘等于你拥有的卡数<br>TP 通信最密集，因此尽量在一台机子内，所以最大不超过8<br>TP 和 PP 能小就小，保证切分后的参数能存到最少的GPU内，剩下的全给 DP<br>TP 和 PP 两者的具体取值根据实际情况确定</p>
+<p>举例，假设有 64 张卡（8 台机器，每台 8 卡）：<br>DP=4, PP=2, TP=8<br>总共需要：4 × 2 × 8 = 64 张卡<br>每份数据并行的副本 = PP=2 × TP=8 = 16 张卡</p>
+<h2 id="Megatron"><a href="#Megatron" class="headerlink" title="Megatron"></a>Megatron</h2><p>就是使用3D并行训练的框架</p>
+<p>1、准备数据集<br>Megatron 的数据格式跟 HuggingFace 不同。HuggingFace 通常读 JSONL 或 parquet，Megatron 要求转成二进制格式（numpy memory-mapped 文件）。</p>
+<p>原因是：大模型训练时数据量很大（TB 级），JSONL 解析太慢，转成二进制后可以直接内存映射读取，IO 效率高很多。</p>
+<p>Megatron 提供了转换脚本，类似：<br>python tools/preprocess_data.py —input my_data.jsonl —output_prefix my_data —tokenizer-type GPT2BPETokenizer<br>产出两个文件：.bin（tokenized 数据）和 .idx（索引文件）。</p>
+<p>2、准备模型与模型转换<br>Megatron 的权重存储方式跟 HuggingFace 不一样。HF 是直接存完整的权重矩阵，Megatron 因为要做 TP切分，权重是按切分方式存储的。</p>
+<p>所以如果要用 HF 上预训练好的模型（比如 LLaMA、Qwen），需要做一次格式转换。Megatron 提供了转换脚本，把 HF 的pytorch_model.bin 转成 Megatron 能识别的 checkpoint。</p>
+<p>3、安装环境<br>最优：有一个已经集成的镜像。否则就只能自己做镜像了。<br>找一个合适的基础镜像，如NVIDIA 官方的 PyTorch 容器（包含 CUDA、NCCL 等底层库）<br>从 GitHub 拉取 Megatron-LM，pip 安装依赖（主要是版本兼容的问题——CUDA、PyTorch、NCCL、Megatron）<br>每个库安装完后，均需要做验证<br>过程中根据出现的bug进行修复。还有Megatron-LM能够找到一个稳定的commit记录，避免其更新产生依赖不兼容匹配。</p>
+<p>4、编写训练程序<br>略。因为框架将大部分内容都已经封装了。而且往往会使用现成的基模型与数据集，只需在配置参数里配置好即可开始训练。</p>
+<p>5、配置参数并运行启动脚本<br>Megatron 的参数主要通过命令行参数传入：</p>
+<p>torchrun —nproc_per_node=8 pretrain_gpt.py \<br>  —tensor-model-parallel-size 8 \<br>  —pipeline-model-parallel-size 2 \<br>  —num-layers 32 \<br>  —hidden-size 4096 \<br>  —num-attention-heads 32 \<br>  —seq-length 2048 \<br>  —micro-batch-size 4 \<br>  —global-batch-size 512 \<br>  —train-iters 500000 \<br>  —data-path my_data_text_document</p>
+<p>其中 tensor-model-parallel-size 和 pipeline-model-parallel-size 就是控制 TP 和 PP<br>的，设好这两个值，框架自动处理切分和通信。多机多卡时用 torchrun 的 —nnodes 参数指定机器数。</p>
+<p>实际可以将上述启动命令与配置参数写到启动脚本里，然后直接运行。</p>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" data-id="cuidmNCaSn2k8DiBtxvo4ks59" data-title="分布式训练 Infra：目录与说明" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/" data-id="cuidakPfOlLM-RVDY4wtCrt0H" data-title="Megatron 与 3D 并行" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
@@ -1541,15 +1503,15 @@
           </li>
         
           <li>
-            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%837-%E7%BB%BC%E5%90%88%E4%BC%98%E5%8C%96%E5%AE%9E%E6%88%98/">分布式训练综合优化实战</a>
+            <a href="/2026/05/10/hello-world/">Hello World</a>
           </li>
         
           <li>
-            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/">Megatron 与 3D 并行</a>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/">分布式训练 Infra：目录与说明</a>
           </li>
         
           <li>
-            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/">FSDP</a>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/">训练基础</a>
           </li>
         
       </ul>

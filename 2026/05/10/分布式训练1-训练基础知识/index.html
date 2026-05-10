@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>训练基础 | AI Notes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="训练基础本文只考虑神经网络的训练 1. 神经网络的物理本质（Infra 视角） 本质：一系列张量（Tensor）的连续变换。数据以向量形式输入，经过层层矩阵运算，最终得到输出。 MLP 示例：最基础的结构 y &#x3D; Wx + b。 参数 (P)：即权重 $W$。Infra 侧关注其存储分布（单卡还是多卡）。 激活值 (A)：计算过程中产生的中间变量。Infra 侧关注其显存占用，是前向传播的水位线。">
+<meta property="og:type" content="article">
+<meta property="og:title" content="训练基础">
+<meta property="og:url" content="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/index.html">
+<meta property="og:site_name" content="AI Notes">
+<meta property="og:description" content="训练基础本文只考虑神经网络的训练 1. 神经网络的物理本质（Infra 视角） 本质：一系列张量（Tensor）的连续变换。数据以向量形式输入，经过层层矩阵运算，最终得到输出。 MLP 示例：最基础的结构 y &#x3D; Wx + b。 参数 (P)：即权重 $W$。Infra 侧关注其存储分布（单卡还是多卡）。 激活值 (A)：计算过程中产生的中间变量。Infra 侧关注其显存占用，是前向传播的水位线。">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-09T23:50:00.000Z">
+<meta property="article:modified_time" content="2026-05-10T15:59:27.555Z">
+<meta property="article:author" content="毁兮完">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="AI Notes" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
+<!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">AI Notes</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://huixiwan.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-分布式训练1-训练基础知识" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" class="article-date">
+  <time class="dt-published" datetime="2026-05-09T23:50:00.000Z" itemprop="datePublished">2026-05-10</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      训练基础
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="训练基础"><a href="#训练基础" class="headerlink" title="训练基础"></a>训练基础</h1><p>本文只考虑神经网络的训练</p>
+<h2 id="1-神经网络的物理本质（Infra-视角）"><a href="#1-神经网络的物理本质（Infra-视角）" class="headerlink" title="1. 神经网络的物理本质（Infra 视角）"></a>1. 神经网络的物理本质（Infra 视角）</h2><ul>
+<li><strong>本质</strong>：一系列张量（Tensor）的连续变换。数据以向量形式输入，经过层层矩阵运算，最终得到输出。</li>
+<li><strong>MLP 示例</strong>：最基础的结构 y = Wx + b。<ul>
+<li><strong>参数 (P)</strong>：即权重 $W$。Infra 侧关注其存储分布（单卡还是多卡）。</li>
+<li><strong>激活值 (A)</strong>：计算过程中产生的中间变量。Infra 侧关注其显存占用，是前向传播的水位线。</li>
+<li><strong>算子</strong>：如激活函数、Softmax。关注其计算开销与对显存碎片的贡献。</li>
+</ul>
+</li>
+</ul>
+<h2 id="2-训练的三大阶段与显存占用"><a href="#2-训练的三大阶段与显存占用" class="headerlink" title="2. 训练的三大阶段与显存占用"></a>2. 训练的三大阶段与显存占用</h2><h3 id="2-1-显存账单核心成员"><a href="#2-1-显存账单核心成员" class="headerlink" title="2.1 显存账单核心成员"></a>2.1 显存账单核心成员</h3><ul>
+<li><strong>参数 (P)</strong>：模型权重。如果以FP16格式，占用 $2N$ 字节。</li>
+<li><strong>梯度 (G)</strong>：反向传播产生。如果以FP16格式，占用 $2N$ 字节。</li>
+<li><strong>优化器状态 (O)</strong>：以 Adam 为例，包含一阶动量（历史梯度的滑动平均，加速收敛）、二阶动量（历史梯度平方的滑动平均，自适应调整学习率）、FP32 Master Weights（保存一份高精度参数，防止精度损失），共占用 $12N$ 字节（$4N$+$4N$+$4N$）。</li>
+<li><strong>激活值 (A)</strong>：前向传播产生，随 Batch Size 和序列长度线性增长。</li>
+</ul>
+<p>常见训练方式：</p>
+<ul>
+<li><strong>纯 FP32 训练</strong>（老旧方法）：$P(4N) + G(4N) + O(8N) = 16N$。</li>
+<li><strong>混合精度训练</strong>（主流）：$P(2N) + G(2N) + O(12N) = 16N$。</li>
+</ul>
+<h3 id="2-2-常见数据类型"><a href="#2-2-常见数据类型" class="headerlink" title="2.2 常见数据类型"></a>2.2 常见数据类型</h3><div class="table-container">
+<table>
+<thead>
+<tr>
+<th>数据类型</th>
+<th>字节数</th>
+<th>符号位</th>
+<th>指数位</th>
+<th>尾数位</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FP8</td>
+<td>1</td>
+<td>1</td>
+<td>4</td>
+<td>3</td>
+<td>1 字节，极致压缩与推理场景，精度损失较大</td>
+</tr>
+<tr>
+<td>FP16</td>
+<td>2</td>
+<td>1</td>
+<td>5</td>
+<td>10</td>
+<td>2 字节，训练/推理常见，兼顾计算速度与精度</td>
+</tr>
+<tr>
+<td>BF16</td>
+<td>2</td>
+<td>1</td>
+<td>8</td>
+<td>7</td>
+<td>2 字节，动态范围与 FP32 相同（同 8 位指数），运算精度低于 FP16，但溢出风险更低，硬件适配好</td>
+</tr>
+<tr>
+<td>FP32</td>
+<td>4</td>
+<td>1</td>
+<td>8</td>
+<td>23</td>
+<td>4 字节，标准单精度浮点，与 BF16 取值范围一致，可无损转换为 BF16 参与快速计算</td>
+</tr>
+<tr>
+<td>TF32</td>
+<td>4</td>
+<td>1</td>
+<td>8</td>
+<td>10</td>
+<td>仅作为 TensorCore 内部计算格式，不用于显存存储。让 FP32 任务在不改代码的前提下获得近乎 FP16 的速度。</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p><strong>补充说明：</strong></p>
+<ul>
+<li>BF16 与 FP32 拥有完全一致的指数位（8 位），所以理论上 FP32 范围内的数都能“无溢出”直接转为 BF16 存储/计算，只损失尾数精度。PyTorch 等训练框架广泛支持 FP32↔BF16 自动转换，方便在硬件加速下运算。</li>
+<li>TF32 (TensorFloat-32) 是 NVIDIA 新硬件上专为深度学习 TensorCore 设计的数据格式，精度介于 FP16 与 FP32 之间，加速大规模矩阵乘。</li>
+<li>选择数据类型时需权衡精度/动态范围/算力/内存，实际项目中常见混合精度与动态切换方案。</li>
+</ul>
+<h3 id="2-3-训练阶段显存占用情况"><a href="#2-3-训练阶段显存占用情况" class="headerlink" title="2.3 训练阶段显存占用情况"></a>2.3 训练阶段显存占用情况</h3><ol>
+<li><strong>前向传播</strong>：水位 = $(P + O) + A$<ul>
+<li><em>过程</em>：随着层数加深，激活值 $A$ 像叠罗汉一样堆积。</li>
+<li><em>终态</em>：到达前向传播结束，持有全量激活值。</li>
+</ul>
+</li>
+<li><strong>反向传播</strong>：水位 = $(P + O) + A + G$<ul>
+<li><em>过程</em>：显存峰值在这个阶段。梯度 $G$ 在产生，激活值 $A$ 在逐层释放。</li>
+<li><em>峰值</em>：出现在反向传播开始的瞬间，此时 $A$ 还没开始释放，而第一层梯度 $G$ 已经产生。</li>
+</ul>
+</li>
+<li><strong>参数更新</strong>：水位 = $(P + O) + G$<ul>
+<li><em>过程</em>：此时 $A$ 已完全释放。优化器利用 $G$ 更新 $O$ 和 $P$。</li>
+<li><em>终态</em>：更新完毕，清空 $G$。</li>
+</ul>
+</li>
+<li><strong>休整期</strong>：水位 = $P + O$<ul>
+<li><em>状态</em>：显存回到最低水位，等待下一轮 Batch。</li>
+</ul>
+</li>
+</ol>
+<p>注：在第一轮迭代（Step 0）的起始点，显存仅占用 $P$；随着第一次 <code>optimizer.step()</code> 执行，优化器状态 $O$ 被初始化并从此常驻显存。</p>
+<h2 id="3-Transformer：大模型并行的结构基础"><a href="#3-Transformer：大模型并行的结构基础" class="headerlink" title="3. Transformer：大模型并行的结构基础"></a>3. Transformer：大模型并行的结构基础</h2><h3 id="3-1-Attention-机制与显存瓶颈"><a href="#3-1-Attention-机制与显存瓶颈" class="headerlink" title="3.1 Attention 机制与显存瓶颈"></a>3.1 Attention 机制与显存瓶颈</h3><ul>
+<li><strong>QKV 逻辑</strong>：Q(找什么)与 K(有什么)做矩阵乘法算相关性，再作用于 V(内容) 得到输出。</li>
+<li><strong>显存瓶颈</strong>：计算过程中会产生一个 $(Seq, Seq)$ 大小的中间矩阵。</li>
+<li><strong>结论</strong>：显存占用随序列长度 $S$ 的<strong>平方</strong>增长。这是长文本训练（如 32k+）容易 OOM 的根本原因。<h3 id="3-2-堆叠架构与并行友好性"><a href="#3-2-堆叠架构与并行友好性" class="headerlink" title="3.2 堆叠架构与并行友好性"></a>3.2 堆叠架构与并行友好性</h3></li>
+<li><strong>结构</strong>：由多个完全相同的 Block（Attention + MLP）纵向堆叠而成。</li>
+<li><strong>Infra 意义</strong>：<ul>
+<li><strong>好切分</strong>：这种“乐高式”结构是按层切分（FSDP/流水并行）的物理基础。</li>
+<li><strong>算力压榨</strong>：全是矩阵乘法，天然适配 GPU TensorCore，比 RNN 这种串行结构更容易跑满算力。</li>
+</ul>
+</li>
+</ul>
+<h2 id="4-PyTorch-训练实战（以-MLP-为例）"><a href="#4-PyTorch-训练实战（以-MLP-为例）" class="headerlink" title="4. PyTorch 训练实战（以 MLP 为例）"></a>4. PyTorch 训练实战（以 MLP 为例）</h2><h3 id="4-1-环境与模型定义"><a href="#4-1-环境与模型定义" class="headerlink" title="4.1 环境与模型定义"></a>4.1 环境与模型定义</h3><ul>
+<li><strong>依赖</strong>：PyTorch 核心库。</li>
+<li><strong>MLP 模型定义示例</strong>：2 个隐藏层为例（全连接），包含模型类与 forward 函数——<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">import</span> torch</span><br><span class="line"><span class="keyword">import</span> torch.nn <span class="keyword">as</span> nn</span><br><span class="line"></span><br><span class="line"><span class="keyword">class</span> <span class="title class_">MLP</span>(nn.Module):</span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">__init__</span>(<span class="params">self, input_dim, hidden_dim1, hidden_dim2, output_dim</span>):</span><br><span class="line">        <span class="built_in">super</span>().__init__()</span><br><span class="line">        <span class="variable language_">self</span>.fc1 = nn.Linear(input_dim, hidden_dim1)</span><br><span class="line">        <span class="variable language_">self</span>.relu1 = nn.ReLU()</span><br><span class="line">        <span class="variable language_">self</span>.fc2 = nn.Linear(hidden_dim1, hidden_dim2)</span><br><span class="line">        <span class="variable language_">self</span>.relu2 = nn.ReLU()</span><br><span class="line">        <span class="variable language_">self</span>.fc3 = nn.Linear(hidden_dim2, output_dim)</span><br><span class="line"></span><br><span class="line">    <span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">        x = <span class="variable language_">self</span>.relu1(<span class="variable language_">self</span>.fc1(x))</span><br><span class="line">        x = <span class="variable language_">self</span>.relu2(<span class="variable language_">self</span>.fc2(x))</span><br><span class="line">        x = <span class="variable language_">self</span>.fc3(x)</span><br><span class="line">        <span class="keyword">return</span> x</span><br></pre></td></tr></table></figure></li>
+<li><em>Infra 意义</em>：<code>forward</code> 的执行顺序影响激活值的产生与释放。</li>
+</ul>
+<h3 id="4-2-数据准备"><a href="#4-2-数据准备" class="headerlink" title="4.2 数据准备"></a>4.2 数据准备</h3><ul>
+<li>本节数据准备部分不再提供代码，实际场景中可根据任务生成数据集及 DataLoader。</li>
+<li><em>Infra 意义</em>：在真实训练中，合理利用如 <code>num_workers</code> 和 <code>pin_memory</code> 等参数可以有效加速数据传输到 GPU，提升整体数据面性能。</li>
+</ul>
+<h3 id="4-3-核心训练-Loop"><a href="#4-3-核心训练-Loop" class="headerlink" title="4.3 核心训练 Loop"></a>4.3 核心训练 Loop</h3><figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">for</span> data, target <span class="keyword">in</span> train_loader:</span><br><span class="line">    <span class="comment"># 1. 梯度清零：防止上一个 Batch 的梯度累加</span></span><br><span class="line">    optimizer.zero_grad() </span><br><span class="line"></span><br><span class="line">    <span class="comment"># 2. 前向传播：计算输出，显存水位升至 P + A</span></span><br><span class="line">    output = model(data)</span><br><span class="line">    loss = criterion(output, target)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># 3. 反向传播：计算梯度，显存到达峰值 P + A + G</span></span><br><span class="line">    <span class="comment"># 分布式场景下，此处触发 NCCL All-Reduce 进行梯度同步</span></span><br><span class="line">    loss.backward() </span><br><span class="line"></span><br><span class="line">    <span class="comment"># 4. 参数更新：利用梯度更新参数，显存水位 P + G + O</span></span><br><span class="line">    <span class="comment"># 执行完后，本轮的 A 和 G 被释放，显存回落至 P + O</span></span><br><span class="line">    optimizer.step() </span><br></pre></td></tr></table></figure>
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/" data-id="cuidPjfypH9Y_4q-unBV03ZvT" data-title="训练基础" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">前一篇</strong>
+      <div class="article-nav-title">
+        
+          分布式训练 Infra：目录与说明
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%832-%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%98%BE%E5%AD%98%E7%89%A9%E7%90%86%E8%BE%B9%E7%95%8C/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">后一篇</strong>
+      <div class="article-nav-title">大模型显存物理边界</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">分类</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0Infra/">强化学习Infra</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/05/">五月 2026</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2026/05/10/ray/">Ray</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/kuberay/">KubeRay</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/hello-world/">Hello World</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/">分布式训练 Infra：目录与说明</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/">训练基础</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2026 毁兮完<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  
+  
+  <title>FSDP | AI Notes</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <meta name="description" content="FSDPZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。 FSDP核心机制FSDP &#x3D; Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片与">
+<meta property="og:type" content="article">
+<meta property="og:title" content="FSDP">
+<meta property="og:url" content="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/index.html">
+<meta property="og:site_name" content="AI Notes">
+<meta property="og:description" content="FSDPZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。 FSDP核心机制FSDP &#x3D; Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片与">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2026-05-09T23:10:00.000Z">
+<meta property="article:modified_time" content="2026-05-10T15:59:34.547Z">
+<meta property="article:author" content="毁兮完">
+<meta name="twitter:card" content="summary">
+  
+    <link rel="alternate" href="/atom.xml" title="AI Notes" type="application/atom+xml">
+  
+  
+    <link rel="shortcut icon" href="/favicon.png">
+  
+  
+  
+<link rel="stylesheet" href="/css/style.css">
+
+  
+    
+<link rel="stylesheet" href="/fancybox/jquery.fancybox.min.css">
+
+  
+  
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/fork-awesome@1.2.0/css/fork-awesome.min.css">
+
+<!-- hexo injector head_end start -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.12.0/dist/katex.min.css">
+<!-- hexo injector head_end end --><meta name="generator" content="Hexo 8.1.2"></head>
+
+<body>
+  <div id="container">
+    <div id="wrap">
+      <header id="header">
+  <div id="banner"></div>
+  <div id="header-outer" class="outer">
+    <div id="header-title" class="inner">
+      <h1 id="logo-wrap">
+        <a href="/" id="logo">AI Notes</a>
+      </h1>
+      
+    </div>
+    <div id="header-inner" class="inner">
+      <nav id="main-nav">
+        <a id="main-nav-toggle" class="nav-icon"><span class="fa fa-bars"></span></a>
+        
+          <a class="main-nav-link" href="/">Home</a>
+        
+          <a class="main-nav-link" href="/archives">Archives</a>
+        
+      </nav>
+      <nav id="sub-nav">
+        
+        
+          <a class="nav-icon" href="/atom.xml" title="RSS 订阅"><span class="fa fa-rss"></span></a>
+        
+        <a class="nav-icon nav-search-btn" title="搜索"><span class="fa fa-search"></span></a>
+      </nav>
+      <div id="search-form-wrap">
+        <form action="//google.com/search" method="get" accept-charset="UTF-8" class="search-form"><input type="search" name="q" class="search-form-input" placeholder="搜索"><button type="submit" class="search-form-submit">&#xF002;</button><input type="hidden" name="sitesearch" value="https://huixiwan.github.io"></form>
+      </div>
+    </div>
+  </div>
+</header>
+
+      <div class="outer">
+        <section id="main"><article id="post-分布式训练5-FSDP" class="h-entry article article-type-post" itemprop="blogPost" itemscope itemtype="https://schema.org/BlogPosting">
+  <div class="article-meta">
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" class="article-date">
+  <time class="dt-published" datetime="2026-05-09T23:10:00.000Z" itemprop="datePublished">2026-05-10</time>
+</a>
+    
+  <div class="article-category">
+    <a class="article-category-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a>
+  </div>
+
+  </div>
+  <div class="article-inner">
+    
+    
+      <header class="article-header">
+        
+  
+    <h1 class="p-name article-title" itemprop="headline name">
+      FSDP
+    </h1>
+  
+
+      </header>
+    
+    <div class="e-content article-entry" itemprop="articleBody">
+      
+        <h1 id="FSDP"><a href="#FSDP" class="headerlink" title="FSDP"></a>FSDP</h1><p>ZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。</p>
+<h2 id="FSDP核心机制"><a href="#FSDP核心机制" class="headerlink" title="FSDP核心机制"></a>FSDP核心机制</h2><p>FSDP = Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片与重组机制，它将模型参数、梯度和优化器状态均匀分布在所有 GPU 上。本质是<strong>“用通讯换显存”</strong>。</p>
+<p>FSDP的分片原理：<br>通过 auto_wrap_policy 标记需要分片的层（通常是 Transformer Block），将每层的参数展平后均匀切分到各卡上。未被标记的层同样展平切分。<br>Transformer模型的层结构规整，适合按层做统一的分片处理。</p>
+<p>FSDP的重组原理：<br>先将未被标记的层 All-Gather 汇聚完整，然后逐层 All-Gather标记层的参数进行计算，算完立即丢弃，保证任意时刻只有一层是完整的</p>
+<p>Qwen2.5-8B举例<br>[Embedding] [decoder] … [decoder] [RMSNorm] [LM Head]<br>                32<em>decoder layer<br>分片：(2卡)<br>GPU0：[(Embedding+RMSNorm+LM Head)(1/2)] [decoder(1/2)] … [decoder(1/2)]<br>                                                32</em>decoder layer<br>GPU1：[(Embedding+RMSNorm+LM Head)(1/2)] [decoder(1/2)] … [decoder(1/2)]<br>                                                32<em>decoder layer<br>重组：<br>首先汇聚未被标记的部分<br>GPU0：[Embedding] [decoder(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第一层<br>GPU0：[Embedding] [decoder1(完整)] [decoder2(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(完整)] [decoder2(1/2)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第二层<br>GPU0：[Embedding] [decoder1(1/2)] [decoder2(完整)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1/2)] [decoder2(完整)] … [decoder(1/2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>。。。<br>汇聚最后一层<br>GPU0：[Embedding] [decoder1(1/2)] [decoder2(1/2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1/2)] [decoder2(1/2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32*decoder layer<br>最后恢复成分片状态。</p>
+<p>整体静态参数最高水位：(1/N)(P+G+O)</p>
+<p>代码示例：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    sharding_strategy=ShardingStrategy.FULL_SHARD,</span><br><span class="line">    auto_wrap_policy=transformer_auto_wrap_policy,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    device_id=torch.cuda.current_device(),</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">核心就三个参数：</span><br><span class="line">- sharding_strategy：分片策略（FULL_SHARD = ZeRO-3 级别）</span><br><span class="line">- auto_wrap_policy：哪些层做分片</span><br><span class="line">- mixed_precision：混合精度</span><br></pre></td></tr></table></figure></p>
+<p>FSDP与ZeRO-3对比</p>
+<ul>
+<li>FSDP 支持选择性分片，ZeRO-3 全切</li>
+<li>ZeRO-3 有 ZeRO-Infinity（NVMe offload），FSDP 只有 CPU offload</li>
+</ul>
+<h2 id="FSDP优化策略"><a href="#FSDP优化策略" class="headerlink" title="FSDP优化策略"></a>FSDP优化策略</h2><h3 id="CPU-offload"><a href="#CPU-offload" class="headerlink" title="CPU offload"></a>CPU offload</h3><p>问题：当模型较大时，在FSDP分片后，可能仍会出现(1/N)(P+G+O)在一张卡上放不下的情况。以 8B 模型 + 双卡 BF16 + AdamW 为例，单卡上 Adam 状态约 32GiB，加上参数和梯度，直接 OOM。</p>
+<p>解决方法：CPU offload策略。（核心是让O一直存储在CPU侧，O的比重最大，能减轻GPU显存的压力）<br>P：前向阶段：CPU——》GPU（CPU侧复制一份到GPU侧，算完会丢弃），反向阶段：CPU——》GPU（CPU侧复制一份到GPU侧，算完会丢弃）<br>G：反向阶段：在GPU生成。Optimizer step：GPU——》CPU（直接移动）<br>O：一直在CPU侧</p>
+<p>代价：CPU↔GPU 数据搬运有延迟，训练速度会下降</p>
+<p>启用方法：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import CPUOffload</span><br><span class="line"></span><br><span class="line">FSDP(</span><br><span class="line">    model,</span><br><span class="line">    cpu_offload=CPUOffload(offload_params=True),</span><br><span class="line">    ...</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>实测数据（8B + 双卡 5090 32G）：</p>
+<p>┌──────────────┬───────────────┬─────────────────────────┐<br>│     配置     │ GPU 峰值显存  │          结果           │<br>├──────────────┼───────────────┼─────────────────────────┤<br>│ 无 Offload   │ ~48GiB（OOM） │ optim.step() 阶段爆显存 │<br>├──────────────┼───────────────┼─────────────────────────┤<br>│ 开启 Offload │ 15.51 GiB     │ 训练正常，50 步稳定     │<br>└──────────────┴───────────────┴─────────────────────────┘</p>
+<h3 id="Activation-Checkpointing"><a href="#Activation-Checkpointing" class="headerlink" title="Activation Checkpointing"></a>Activation Checkpointing</h3><p>问题：当激活值占用较大的场合，即使能存储P+G+O，但仍可能由于A导致OOM。</p>
+<p>解决方法：可以使用Activation Checkpointing方法。</p>
+<p>正常情况:前向传播会保存每一层的激活值，供反向传播使用。<br>Activation Checkpointing：不保存中间层的激活值，只保存该层的输入张量。反向传播到该层时，从保存的输入重新执行前向计算，得到所需的激活值。</p>
+<p>本质:以计算换显存。多花一遍前向计算的时间，省掉大量激活值的显存。</p>
+<p>代码实现：</p>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.algorithms._checkpoint.checkpoint_wrapper import (</span><br><span class="line">    checkpoint_wrapper, CheckpointImpl, apply_activation_checkpointing</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line"># 在 FSDP 包装之后应用</span><br><span class="line">apply_activation_checkpointing(</span><br><span class="line">    model,</span><br><span class="line">    checkpoint_wrapper_fn=functools.partial(</span><br><span class="line">        checkpoint_wrapper, checkpoint_impl=CheckpointImpl.NO_REENTRANT</span><br><span class="line">    ),</span><br><span class="line">    check_fn=lambda submodule: isinstance(submodule, TransformerBlock)</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
+<p>实测数据<br>256 层模型的实验：<br>┌─────────┬────────────┬──────────────────────────────────┐<br>│  模式   │ 激活值占用  │               说明               │<br>├─────────┼────────────┼──────────────────────────────────┤<br>│ 不开 AC │ 776.12 MB  │ 保存了所有中间层的激活值           │<br>├─────────┼────────────┼──────────────────────────────────┤<br>│ 开启 AC │ 264.12 MB  │ 只保存每层输入，中间状态全部丢弃    │<br>└─────────┴────────────┴──────────────────────────────────┘<br>激活值减少了约 66%。</p>
+<h3 id="混合精度"><a href="#混合精度" class="headerlink" title="混合精度"></a>混合精度</h3><p>为了加快计算速度，可以使用混合精度的方式来训练。参数在GPU以 BF16 存储（省显存），计算也用 BF16（GPU加速），优化器内部保留 FP32 主副本（用于更新P，保数值稳定）。计算用 BF16（快+省），更新用 FP32（稳），两者各取所长。<br>┌─────────────────┬──────────┬──────────────────────────────┐<br>│                 │   FP32   │       BF16（混合精度）        │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ P               │ 4 bytes  │ 2 bytes                      │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ G               │ 4 bytes  │ 2 bytes                      │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ O（优化器状态）  │ 8 bytes  │ 12 bytes（保留 FP32 主副本）  │<br>├─────────────────┼──────────┼──────────────────────────────┤<br>│ 每参数总计       │ 16 bytes │ 16 bytes                     │<br>└─────────────────┴──────────┴──────────────────────────────┘<br>虽然整体P+G+O没有变化，但是（1）P 和 G 的显存占用减半，使用CPU offload的情况下，显存只会用到P+G，这时显存占用就变少了。（2）P 和 G 的显存占用减半，A的位数也会减半，那整体显存的占用也会变少。</p>
+<p>代码示例：<br><figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    。。。</span><br><span class="line">)</span><br></pre></td></tr></table></figure></p>
+
+      
+    </div>
+    <footer class="article-footer">
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuidUEBGr7jnPhh2NSbDrepJc" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      
+      
+      
+    </footer>
+  </div>
+  
+    
+<nav id="article-nav">
+  
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%834-ZeRO-123%E5%92%8Cdeepspeed/" id="article-nav-newer" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">前一篇</strong>
+      <div class="article-nav-title">
+        
+          ZeRO-123和Deepspeed
+        
+      </div>
+    </a>
+  
+  
+    <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%836-Megatron%E4%B8%8E3D%E5%B9%B6%E8%A1%8C/" id="article-nav-older" class="article-nav-link-wrap">
+      <strong class="article-nav-caption">后一篇</strong>
+      <div class="article-nav-title">Megatron 与 3D 并行</div>
+    </a>
+  
+</nav>
+
+  
+</article>
+
+
+</section>
+        
+          <aside id="sidebar">
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">分类</h3>
+    <div class="widget">
+      <ul class="category-list"><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%83/">分布式训练</a></li><li class="category-list-item"><a class="category-list-link" href="/categories/%E5%BC%BA%E5%8C%96%E5%AD%A6%E4%B9%A0Infra/">强化学习Infra</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+
+  
+    
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">归档</h3>
+    <div class="widget">
+      <ul class="archive-list"><li class="archive-list-item"><a class="archive-list-link" href="/archives/2026/05/">五月 2026</a></li></ul>
+    </div>
+  </div>
+
+
+  
+    
+  <div class="widget-wrap">
+    <h3 class="widget-title">最新文章</h3>
+    <div class="widget">
+      <ul>
+        
+          <li>
+            <a href="/2026/05/10/ray/">Ray</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/kuberay/">KubeRay</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/hello-world/">Hello World</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%830-%E7%9B%AE%E5%BD%95/">分布式训练 Infra：目录与说明</a>
+          </li>
+        
+          <li>
+            <a href="/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%831-%E8%AE%AD%E7%BB%83%E5%9F%BA%E7%A1%80%E7%9F%A5%E8%AF%86/">训练基础</a>
+          </li>
+        
+      </ul>
+    </div>
+  </div>
+
+  
+</aside>
+        
+      </div>
+      <footer id="footer">
+  
+  <div class="outer">
+    <div id="footer-info" class="inner">
+      
+      &copy; 2026 毁兮完<br>
+      Powered by <a href="https://hexo.io/" target="_blank">Hexo</a>
+    </div>
+  </div>
+</footer>
+
+    </div>
+    <nav id="mobile-nav">
+  
+    <a href="/" class="mobile-nav-link">Home</a>
+  
+    <a href="/archives" class="mobile-nav-link">Archives</a>
+  
+</nav>
+    
+
+
+<script src="/js/jquery-3.6.4.min.js"></script>
+
+
+
+  
+<script src="/fancybox/jquery.fancybox.min.js"></script>
+
+
+
+
+<script src="/js/script.js"></script>
+
+
+
+
+
+  </div>
+</body>
+</html>
