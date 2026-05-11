@@ -14,7 +14,7 @@
 <meta property="og:description" content="ZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。 FSDP核心机制FSDP &#x3D; Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-05-09T23:10:00.000Z">
-<meta property="article:modified_time" content="2026-05-10T16:29:11.894Z">
+<meta property="article:modified_time" content="2026-05-11T15:50:39.207Z">
 <meta property="article:author" content="毁兮完">
 <meta name="twitter:card" content="summary">
   
@@ -100,10 +100,10 @@
     <div class="e-content article-entry" itemprop="articleBody">
       
         <p>ZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。</p>
-<h2 id="FSDP核心机制"><a href="#FSDP核心机制" class="headerlink" title="FSDP核心机制"></a>FSDP核心机制</h2><p>FSDP &#x3D; Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片与重组机制，它将模型参数、梯度和优化器状态均匀分布在所有 GPU 上。本质是**“用通讯换显存”**。</p>
+<h2 id="FSDP核心机制"><a href="#FSDP核心机制" class="headerlink" title="FSDP核心机制"></a>FSDP核心机制</h2><p>FSDP &#x3D; Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片与重组机制，它将模型参数、梯度和优化器状态均匀分布在所有 GPU 上。本质是“用通讯换显存”。</p>
 <p>FSDP的分片原理：<br>通过 auto_wrap_policy 标记需要分片的层（通常是 Transformer Block），将每层的参数展平后均匀切分到各卡上。未被标记的层同样展平切分。<br>Transformer模型的层结构规整，适合按层做统一的分片处理。</p>
 <p>FSDP的重组原理：<br>先将未被标记的层 All-Gather 汇聚完整，然后逐层 All-Gather标记层的参数进行计算，算完立即丢弃，保证任意时刻只有一层是完整的</p>
-<p>Qwen2.5-8B举例<br>[Embedding] [decoder] … [decoder] [RMSNorm] [LM Head]<br>                32<em>decoder layer<br>分片：(2卡)<br>GPU0：[(Embedding+RMSNorm+LM Head)(1&#x2F;2)] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)]<br>                                                32</em>decoder layer<br>GPU1：[(Embedding+RMSNorm+LM Head)(1&#x2F;2)] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)]<br>                                                32<em>decoder layer<br>重组：<br>首先汇聚未被标记的部分<br>GPU0：[Embedding] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第一层<br>GPU0：[Embedding] [decoder1(完整)] [decoder2(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(完整)] [decoder2(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>汇聚第二层<br>GPU0：[Embedding] [decoder1(1&#x2F;2)] [decoder2(完整)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1&#x2F;2)] [decoder2(完整)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>                            32<em>decoder layer<br>。。。<br>汇聚最后一层<br>GPU0：[Embedding] [decoder1(1&#x2F;2)] [decoder2(1&#x2F;2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1&#x2F;2)] [decoder2(1&#x2F;2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>                            32*decoder layer<br>最后恢复成分片状态。</p>
+<p>Qwen2.5-8B举例<br>[Embedding] [decoder] … [decoder] [RMSNorm] [LM Head]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32<em>decoder layer<br>分片：(2卡)<br>GPU0：[(Embedding+RMSNorm+LM Head)(1&#x2F;2)] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32</em>decoder layer<br>GPU1：[(Embedding+RMSNorm+LM Head)(1&#x2F;2)] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32<em>decoder layer<br>重组：<br>首先汇聚未被标记的部分<br>GPU0：[Embedding] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32</em>decoder layer<br>GPU1：[Embedding] [decoder(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32<em>decoder layer<br>汇聚第一层<br>GPU0：[Embedding] [decoder1(完整)] [decoder2(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32</em>decoder layer<br>GPU1：[Embedding] [decoder1(完整)] [decoder2(1&#x2F;2)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32<em>decoder layer<br>汇聚第二层<br>GPU0：[Embedding] [decoder1(1&#x2F;2)] [decoder2(完整)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1&#x2F;2)] [decoder2(完整)] … [decoder(1&#x2F;2)] [RMSNorm] [LM Head]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32<em>decoder layer<br>。。。<br>汇聚最后一层<br>GPU0：[Embedding] [decoder1(1&#x2F;2)] [decoder2(1&#x2F;2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32</em>decoder layer<br>GPU1：[Embedding] [decoder1(1&#x2F;2)] [decoder2(1&#x2F;2)] … [decoder(完整)] [RMSNorm] [LM Head]<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;32*decoder layer<br>最后恢复成分片状态。</p>
 <p>整体静态参数最高水位：(1&#x2F;N)(P+G+O)</p>
 <p>代码示例：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    sharding_strategy=ShardingStrategy.FULL_SHARD,</span><br><span class="line">    auto_wrap_policy=transformer_auto_wrap_policy,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    device_id=torch.cuda.current_device(),</span><br><span class="line">)</span><br><span class="line"></span><br><span class="line">核心就三个参数：</span><br><span class="line">- sharding_strategy：分片策略（FULL_SHARD = ZeRO-3 级别）</span><br><span class="line">- auto_wrap_policy：哪些层做分片</span><br><span class="line">- mixed_precision：混合精度</span><br></pre></td></tr></table></figure>
@@ -120,7 +120,25 @@
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import CPUOffload</span><br><span class="line"></span><br><span class="line">FSDP(</span><br><span class="line">    model,</span><br><span class="line">    cpu_offload=CPUOffload(offload_params=True),</span><br><span class="line">    ...</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
 
 <p>实测数据（8B + 双卡 5090 32G）：</p>
-<p>┌──────────────┬───────────────┬─────────────────────────┐<br>│     配置     │ GPU 峰值显存  │          结果           │<br>├──────────────┼───────────────┼─────────────────────────┤<br>│ 无 Offload   │ ~48GiB（OOM） │ optim.step() 阶段爆显存 │<br>├──────────────┼───────────────┼─────────────────────────┤<br>│ 开启 Offload │ 15.51 GiB     │ 训练正常，50 步稳定     │<br>└──────────────┴───────────────┴─────────────────────────┘</p>
+<table>
+<thead>
+<tr>
+<th>配置</th>
+<th>GPU 峰值显存</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>无 Offload</td>
+<td>~48GiB（OOM）</td>
+<td>optim.step() 阶段爆显存</td>
+</tr>
+<tr>
+<td>开启 Offload</td>
+<td>15.51 GiB</td>
+<td>训练正常，50 步稳定</td>
+</tr>
+</tbody></table>
 <h3 id="Activation-Checkpointing"><a href="#Activation-Checkpointing" class="headerlink" title="Activation Checkpointing"></a>Activation Checkpointing</h3><p>问题：当激活值占用较大的场合，即使能存储P+G+O，但仍可能由于A导致OOM。</p>
 <p>解决方法：可以使用Activation Checkpointing方法。</p>
 <p>正常情况:前向传播会保存每一层的激活值，供反向传播使用。<br>Activation Checkpointing：不保存中间层的激活值，只保存该层的输入张量。反向传播到该层时，从保存的输入重新执行前向计算，得到所需的激活值。</p>
@@ -136,7 +154,7 @@
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuid5yEt8mf4FBAu_p99dEmjI" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuidx1VuUiCB28EefSD6OY6Ge" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
