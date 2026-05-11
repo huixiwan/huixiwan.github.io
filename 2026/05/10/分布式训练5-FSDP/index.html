@@ -14,7 +14,7 @@
 <meta property="og:description" content="ZeRO-123能解决大模型的分布式训练问题，但该方法集成在DeepSpeed框架内。PyTorch为了解决大模型训练问题，在其内部集成了FSDP。因此使用FSDP的话，则不需要引入新的框架。 FSDP核心机制FSDP &#x3D; Fully Sharded Data Parallel，”Fully Sharded”的意思是 P、G、O 全部切分（PyTorch 原生版的ZeRO-3）。采用分片">
 <meta property="og:locale" content="zh_CN">
 <meta property="article:published_time" content="2026-05-09T23:10:00.000Z">
-<meta property="article:modified_time" content="2026-05-11T16:21:13.300Z">
+<meta property="article:modified_time" content="2026-05-11T16:25:02.653Z">
 <meta property="article:author" content="毁兮完">
 <meta name="twitter:card" content="summary">
   
@@ -172,47 +172,15 @@
 </tr>
 </tbody></table>
 <h3 id="混合精度"><a href="#混合精度" class="headerlink" title="混合精度"></a>混合精度</h3><p>为了加快计算速度，可以使用混合精度的方式来训练。参数在GPU以 BF16 存储（省显存），计算也用 BF16（GPU加速），优化器内部保留 FP32 主副本（用于更新P，保数值稳定）。计算用 BF16（快+省），更新用 FP32（稳），两者各取所长。</p>
-<table>
-<thead>
-<tr>
-<th>类型</th>
-<th>FP32</th>
-<th>BF16（混合精度）</th>
-</tr>
-</thead>
-<tbody><tr>
-<td>P</td>
-<td>4 bytes</td>
-<td>2 bytes</td>
-</tr>
-<tr>
-<td>G</td>
-<td>4 bytes</td>
-<td>2 bytes</td>
-</tr>
-<tr>
-<td>O（优化器状态）</td>
-<td>8 bytes</td>
-<td>12 bytes（保留 FP32 主副本）</td>
-</tr>
-<tr>
-<td>每参数总计</td>
-<td>16 bytes</td>
-<td>16 bytes</td>
-</tr>
-<tr>
-<td>虽然整体P+G+O没有变化，但是（1）P 和 G 的显存占用减半，使用CPU offload的情况下，显存只会用到P+G，这时显存占用就变少了。（2）P 和 G 的显存占用减半，A的位数也会减半，那整体显存的占用也会变少。</td>
-<td></td>
-<td></td>
-</tr>
-</tbody></table>
+<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line">类型           FP32      BF16（混合精度）</span><br><span class="line">P              4 bytes   2 bytes</span><br><span class="line">G              4 bytes   2 bytes</span><br><span class="line">O（优化器状态） 8 bytes   12 bytes（保留 FP32 主副本）</span><br><span class="line">每参数总计      16 bytes  16 bytes</span><br></pre></td></tr></table></figure>
+<p>虽然整体P+G+O没有变化，但是（1）P 和 G 的显存占用减半，使用CPU offload的情况下，显存只会用到P+G，这时显存占用就变少了。（2）P 和 G 的显存占用减半，A的位数也会减半，那整体显存的占用也会变少。</p>
 <p>代码示例：</p>
 <figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">from torch.distributed.fsdp import FullyShardedDataParallel as FSDP</span><br><span class="line">from torch.distributed.fsdp import MixedPrecision, ShardingStrategy</span><br><span class="line"></span><br><span class="line">model = FSDP(</span><br><span class="line">    model,</span><br><span class="line">    mixed_precision=MixedPrecision(param_dtype=torch.bfloat16),</span><br><span class="line">    。。。</span><br><span class="line">)</span><br></pre></td></tr></table></figure>
 
       
     </div>
     <footer class="article-footer">
-      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuid10ivZRAUZKkGQWaPKlKh6" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
+      <a data-url="https://huixiwan.github.io/2026/05/10/%E5%88%86%E5%B8%83%E5%BC%8F%E8%AE%AD%E7%BB%835-FSDP/" data-id="cuidXQj2aZ7b5b8N5BOvmE7xo" data-title="FSDP" class="article-share-link"><span class="fa fa-share">分享</span></a>
       
       
       
